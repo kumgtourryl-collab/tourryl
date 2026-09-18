@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<title>TouRryl — KUMG</title>
+<style>
+:root{--bg:#000;--surface:#0A0F0D;--primary:#0B3D2E;--accent:#00A86B;--accent-2:#00E58A;--text:#fff;--muted:#9CA3AF;--danger:#FF4D4D;--line:#141a18}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;min-height:100vh;overflow-x:hidden;padding-bottom:70px}
+.screen{display:none;padding:16px}.screen.active{display:block}
+h1{font-size:30px;margin-bottom:4px;font-weight:800;letter-spacing:-.5px}
+h1 .accent{color:var(--accent-2)}
+.sub{color:var(--muted);font-size:13px;margin-bottom:26px}
+input,textarea,select{width:100%;padding:13px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:15px;margin-bottom:10px;outline:none;font-family:inherit}
+input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:90px}
+button{width:100%;padding:13px;background:var(--accent);color:#000;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;transition:opacity .15s}
+button:active{opacity:.8}button:disabled{opacity:.5}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+.link{color:var(--accent-2);text-align:center;margin-top:16px;font-size:14px;cursor:pointer}
+.error{color:var(--danger);font-size:13px;margin-bottom:10px;min-height:18px}
+#splash{position:fixed;inset:0;z-index:9999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .5s ease}
+#splash.hide{opacity:0;pointer-events:none}
+.splash-logo{animation:pulse 1.6s ease-in-out infinite;filter:drop-shadow(0 0 24px rgba(0,229,138,.5))}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08);opacity:.85}}
+.splash-name{font-size:32px;font-weight:800;letter-spacing:-.5px;animation:fadeUp .8s ease .3s both}
+.splash-name span{color:var(--accent-2)}
+.splash-tag{font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;animation:fadeUp .8s ease .6s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Topbar */
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface);position:sticky;top:0;z-index:30;border-bottom:1px solid var(--line)}
+.topbar .brand{font-weight:800;font-size:20px;letter-spacing:-.3px}
+.topbar .brand span{color:var(--accent-2)}
+.topbar .action{color:var(--muted);font-size:13px;cursor:pointer;padding:6px 10px}
+.topbar .icon-btn{position:relative;color:var(--muted);cursor:pointer;padding:6px 10px;display:flex;align-items:center}
+.badge{position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;min-width:16px;text-align:center;line-height:14px}
+
+/* Top nav — 4 tabs now */
+.top-nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:53px;z-index:29}
+.top-nav .nav-tab{flex:1;padding:10px 4px 9px;text-align:center;color:var(--muted);font-size:11px;cursor:pointer;border-bottom:3px solid transparent;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s;background:none;border-radius:0;font-weight:600}
+.top-nav .nav-tab .ic{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:currentColor}
+.top-nav .nav-tab .ic svg{width:100%;height:100%;display:block}
+.top-nav .nav-tab.active{color:var(--accent-2);border-bottom-color:var(--accent-2)}
+
+/* Drawer */
+.drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;display:none}
+.drawer-bg.open{display:block}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:82%;max-width:320px;background:var(--surface);z-index:91;transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.drawer.open{transform:translateX(0)}
+.drawer-head{padding:20px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.drawer-head .avatar{width:52px;height:52px;font-size:20px}
+.drawer-head .name{font-weight:700;font-size:16px}
+.drawer-head .handle{color:var(--muted);font-size:12px}
+.drawer-list{flex:1;overflow-y:auto;padding:8px 0}
+.drawer-item{padding:14px 18px;display:flex;align-items:center;gap:14px;color:var(--text);font-size:15px;cursor:pointer}
+.drawer-item:active{background:rgba(0,168,107,.08)}
+.drawer-item .ic{width:22px;height:22px;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.drawer-item .ic svg{width:100%;height:100%;display:block}
+.drawer-item:active .ic{color:var(--accent-2)}
+.drawer-item .badge{position:static;margin-left:auto}
+.drawer-foot{padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
+
+/* Tabs inside screens */
+.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:109px;z-index:28}
+.tab{flex:1;text-align:center;padding:13px 6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;background:none;border-radius:0}
+.tab.active{color:var(--accent-2);border-bottom-color:var(--accent-2)}
+.search-strip{padding:10px 14px 4px}
+.search-strip input{margin:0}
+
+/* Stories */
+.stories-rail{display:flex;gap:10px;overflow-x:auto;padding:12px 14px 6px;scrollbar-width:none}
+.stories-rail::-webkit-scrollbar{display:none}
+.story-bubble{flex-shrink:0;width:68px;text-align:center;cursor:pointer}
+.story-ring{width:64px;height:64px;border-radius:50%;padding:3px;background:linear-gradient(135deg,var(--accent-2),var(--primary));display:flex;align-items:center;justify-content:center;margin:0 auto}
+.story-ring .avatar{width:100%;height:100%;font-size:22px}
+.story-bubble .label{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.story-bubble.add .story-ring{background:transparent;border:2px dashed var(--accent)}
+
+/* ============================================================
+   TIKTOK FEED — FIXED CHROME (black + dark green)
+   ============================================================ */
+#screen-tiktok{padding:0}
+#screen-tiktok.active{display:block;height:100vh;overflow:hidden;position:fixed;inset:0;z-index:40;background:#000}
+
+/* Scroller contains ONLY videos + their progress bars */
+.tiktok-scroller{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tiktok-scroller::-webkit-scrollbar{display:none}
+.tiktok-slide{height:100vh;scroll-snap-align:start;position:relative;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+.tiktok-slide video{width:100%;height:100%;object-fit:contain;background:#000}
+.tiktok-slide .tap-target{position:absolute;inset:0;z-index:1}
+
+/* Fixed progress bar (updates as video plays) */
+.tt-progress-fixed{position:absolute;bottom:56px;left:0;right:0;height:2px;background:rgba(0,168,107,.2);z-index:5;overflow:hidden}
+.tt-progress-fixed .bar{height:100%;background:var(--accent-2);width:0;transition:width .15s linear}
+
+/* Fixed top tabs — dark green glass */
+.tt-fixed-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:22px;padding:14px 70px 14px 16px;background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,rgba(0,0,0,.4) 60%,transparent 100%);z-index:6;color:#fff}
+.tt-fixed-top .tt-tab{font-size:15px;font-weight:500;color:rgba(255,255,255,.65);cursor:pointer;padding:6px 0;position:relative;background:none;border:none;width:auto}
+.tt-fixed-top .tt-tab.active{color:var(--accent-2);font-weight:700}
+.tt-fixed-top .tt-tab.active::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:22px;height:2px;background:var(--accent-2);border-radius:2px}
+
+/* Fixed top-right buttons */
+.tt-fixed-top-right{position:absolute;top:14px;right:12px;display:flex;gap:6px;z-index:7}
+.tt-fixed-top-right button{width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(0,168,107,.3);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:0}
+
+/* Fixed shop badge */
+.tt-fixed-shop{position:absolute;top:64px;left:14px;background:var(--accent);color:#000;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;z-index:7;display:none;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,168,107,.5)}
+.tt-fixed-shop.show{display:flex}
+
+/* Fixed bottom-left content (author, caption, sound) */
+.tt-fixed-bottom-left{position:absolute;bottom:130px;left:14px;right:88px;color:#fff;z-index:6;pointer-events:none}
+.tt-fixed-bottom-left .tt-author{font-weight:700;font-size:16px;margin-bottom:6px;cursor:pointer;pointer-events:auto;display:inline-block;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.tt-fixed-bottom-left .tt-caption{font-size:13.5px;line-height:1.4;margin-bottom:6px;max-height:4.2em;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.8)}
+.tt-fixed-bottom-left .tt-caption a{color:#fff;text-decoration:none;font-weight:600}
+.tt-fixed-bottom-left .tt-sound{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#eee;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:20px;pointer-events:auto;margin-top:4px}
+.tt-fixed-bottom-left .tt-sound svg{width:14px;height:14px}
+
+/* Fixed right action rail — dark green glow */
+.tt-fixed-actions{position:absolute;right:8px;bottom:140px;display:flex;flex-direction:column;gap:14px;align-items:center;z-index:7;color:#fff}
+.tt-fixed-actions .act{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;background:none;width:auto;padding:0;border:none}
+.tt-fixed-actions .act .icon{width:46px;height:46px;border-radius:50%;background:rgba(0,168,107,.14);border:1px solid rgba(0,168,107,.28);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;transition:transform .15s}
+.tt-fixed-actions .act:active .icon{transform:scale(.9)}
+.tt-fixed-actions .act.liked .icon{background:rgba(255,77,77,.25);border-color:rgba(255,77,77,.5)}
+.tt-fixed-actions .act .count{font-size:11.5px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+
+.tt-fixed-avatar{position:relative;margin-bottom:2px;cursor:pointer}
+.tt-fixed-avatar .avatar{width:46px;height:46px;border-radius:50%;border:2px solid var(--accent-2);overflow:hidden;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent-2);font-size:18px}
+.tt-fixed-avatar .avatar img{width:100%;height:100%;object-fit:cover}
+.tt-fixed-avatar .plus{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:#FE2C55;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;border:2px solid #000}
+
+.tt-fixed-disc{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle,#000 30%,#0B3D2E 60%,#000 100%);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent-2);animation:spin 4s linear infinite;border:1px solid rgba(0,168,107,.4);margin-top:4px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Fixed search bar */
+.tt-fixed-search{position:absolute;bottom:62px;left:14px;right:14px;background:rgba(0,168,107,.1);backdrop-filter:blur(12px);border-radius:24px;padding:10px 16px;display:flex;align-items:center;gap:10px;color:#fff;z-index:8;font-size:13.5px;cursor:pointer;border:1px solid rgba(0,168,107,.25)}
+.tt-fixed-search .icon{font-size:16px;opacity:.9;color:var(--accent-2)}
+.tt-fixed-search .text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
+.tt-fixed-search .arrow{opacity:.7}
+
+/* Fixed bottom nav — black bg, dark green active state */
+.tt-fixed-nav{position:absolute;bottom:0;left:0;right:0;background:#000;border-top:1px solid rgba(0,168,107,.15);display:flex;justify-content:space-around;align-items:center;padding:6px 0 max(8px,env(safe-area-inset-bottom)) 0;z-index:9}
+.tt-fixed-nav .tt-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(255,255,255,.55);font-size:10.5px;cursor:pointer;background:none;border:none;padding:4px 0;width:auto;font-weight:600}
+.tt-fixed-nav .tt-nav-item.active{color:var(--accent-2)}
+.tt-fixed-nav .tt-nav-item svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.tt-fixed-nav .tt-nav-item.active svg{fill:var(--accent-2);stroke:var(--accent-2)}
+.tt-nav-plus{width:42px;height:30px;background:linear-gradient(135deg,var(--accent-2),var(--accent));border-radius:9px;display:flex;align-items:center;justify-content:center;color:#000;font-size:20px;font-weight:400;position:relative;margin:0 auto}
+.tt-nav-plus::before{content:"";position:absolute;left:-5px;top:0;bottom:0;width:5px;background:var(--primary);border-radius:9px 0 0 9px;z-index:-1}
+.tt-nav-plus::after{content:"";position:absolute;right:-5px;top:0;bottom:0;width:5px;background:var(--accent);border-radius:0 9px 9px 0;z-index:-1}
+
+.heart-pop{position:absolute;pointer-events:none;font-size:80px;color:var(--danger);animation:heartPop .8s ease forwards;z-index:8;transform:translate(-50%,-50%)}
+@keyframes heartPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
+
+/* ============================================================
+   POSTS / FEED
+   ============================================================ */
+.post{background:var(--surface);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid var(--line)}
+.post-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.avatar{width:38px;height:38px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent-2);font-size:15px;flex-shrink:0;overflow:hidden;cursor:pointer}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.post-user{font-weight:600;font-size:14px;cursor:pointer}
+.post-time{color:var(--muted);font-size:11px}
+.post-body{font-size:15px;line-height:1.45;margin-bottom:10px;white-space:pre-wrap;word-break:break-word}
+.post-body a.tag{color:var(--accent-2);text-decoration:none}
+.post-media{width:100%;border-radius:10px;margin-bottom:10px;display:block;background:#000;max-height:70vh;object-fit:contain}
+.post-actions{display:flex;gap:18px;color:var(--muted);font-size:13px;align-items:center}
+.post-actions span{cursor:pointer;user-select:none}
+.post-actions .like-btn.liked{color:var(--danger)}
+.post-actions .save-btn.saved{color:var(--accent-2)}
+.post-actions .save-btn{margin-left:auto}
+.post-actions .post-menu{font-size:18px}
+.sponsored-tag{background:rgba(0,168,107,.15);color:var(--accent-2);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:6px;text-transform:uppercase;letter-spacing:1px}
+.linked-listing{margin-top:8px;padding:10px;background:rgba(0,168,107,.08);border:1px solid var(--accent);border-radius:10px;display:flex;gap:10px;align-items:center;cursor:pointer}
+.linked-listing .thumb{width:48px;height:48px;border-radius:8px;background:#111;object-fit:cover;flex-shrink:0}
+.linked-listing .info{flex:1;min-width:0}
+.linked-listing .title{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.linked-listing .price{color:var(--accent-2);font-weight:700;font-size:14px;margin-top:2px}
+
+.fab{position:fixed;bottom:22px;right:20px;width:58px;height:58px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1;box-shadow:0 6px 20px rgba(0,168,107,.45);cursor:pointer;z-index:20;border:none;font-weight:300}
+
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none}
+.sheet-bg.open{display:block}
+.sheet{position:fixed;bottom:0;left:0;right:0;max-height:85vh;background:var(--surface);border-radius:18px 18px 0 0;z-index:101;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:44px;height:4px;background:#2a2f2d;border-radius:2px;margin:10px auto}
+.sheet-title{padding:0 16px 10px;font-weight:700;border-bottom:1px solid var(--line)}
+.sheet-body{overflow-y:auto;padding:12px 16px;flex:1;min-height:120px}
+.sheet-input{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.sheet-input input{margin:0;flex:1}
+.sheet-input button{width:auto;padding:0 18px;font-size:14px}
+.comment{padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px}
+.comment .avatar{width:32px;height:32px;font-size:13px}
+.comment-main{flex:1}
+.comment-head{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+.comment-head b{color:var(--text)}
+.comment-body{font-size:14px;line-height:1.4;word-break:break-word}
+.comment-actions{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px}
+.comment-actions span{cursor:pointer}
+.comment-actions span.liked{color:var(--danger)}
+
+.profile-head{display:flex;flex-direction:column;align-items:center;padding:24px 16px;gap:12px}
+.profile-avatar{width:96px;height:96px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:var(--accent-2);overflow:hidden}
+.profile-avatar img{width:100%;height:100%;object-fit:cover}
+.profile-username{font-size:20px;font-weight:700}
+.profile-rating{color:#FFC800;font-size:14px}
+.profile-bio{color:var(--muted);font-size:14px;text-align:center;max-width:320px}
+.profile-stats{display:flex;gap:26px;font-size:13px;color:var(--muted)}
+.profile-stats b{color:var(--text);font-size:15px}
+.profile-actions{display:flex;gap:10px;width:100%;max-width:340px;flex-wrap:wrap}
+.profile-actions button{flex:1;min-width:90px}
+.grid-label{padding:16px 16px 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:2px}
+
+.notif{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;align-items:center}
+.notif.unread{background:rgba(0,168,107,.06)}
+.notif .avatar{width:42px;height:42px;font-size:15px}
+.notif-body{flex:1;font-size:14px;line-height:1.35}
+.notif-body .muted{color:var(--muted);font-size:12px;display:block;margin-top:2px}
+
+.chat-item{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+.chat-item .avatar{width:46px;height:46px;font-size:17px}
+.chat-meta{flex:1;min-width:0}
+.chat-name{font-weight:600;font-size:15px}
+.chat-last{color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.chat-side{text-align:right}
+.chat-time{color:var(--muted);font-size:11px}
+.chat-unread{display:inline-block;background:var(--accent);color:#000;font-size:11px;font-weight:700;padding:1px 7px;border-radius:9px;margin-top:4px}
+#screen-chat{padding:0}
+#screen-chat.active{display:flex;flex-direction:column;height:100vh;padding-bottom:0}
+#chat-messages{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:78%;padding:9px 13px;border-radius:16px;font-size:14.5px;line-height:1.4;word-break:break-word}
+.msg.me{background:var(--accent);color:#000;align-self:flex-end;border-bottom-right-radius:4px}
+.msg.them{background:#1a201d;color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+.msg-time{font-size:10px;margin-top:3px;opacity:.65}
+.chat-input{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--surface)}
+.chat-input input{margin:0;flex:1}
+.chat-input button{width:auto;padding:0 18px;font-size:14px}
+
+.search-section-label{padding:14px 16px 6px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:2px}
+.search-user{display:flex;gap:12px;padding:10px 16px;align-items:center;cursor:pointer}
+.tag-chip{display:inline-block;padding:6px 12px;margin:4px 6px 4px 0;background:var(--surface);border:1px solid var(--line);border-radius:20px;color:var(--accent-2);font-size:13px;cursor:pointer}
+.trend-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 14px 20px}
+.trend-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer}
+.trend-card .tag{color:var(--accent-2);font-weight:700;font-size:15px}
+
+.mk-cats{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;scrollbar-width:none}
+.mk-cats::-webkit-scrollbar{display:none}
+.mk-cat{padding:7px 14px;background:var(--surface);border:1px solid var(--line);border-radius:20px;font-size:13px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.mk-cat.active{background:var(--primary);color:var(--accent-2);border-color:var(--accent)}
+.mk-filters{display:flex;gap:8px;padding:0 14px 8px;overflow-x:auto;scrollbar-width:none}
+.mk-filters::-webkit-scrollbar{display:none}
+.mk-filter{padding:8px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.mk-filter.active{background:var(--accent);color:#000;border-color:var(--accent)}
+.mk-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 14px 90px}
+.mk-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;position:relative}
+.mk-card .thumb{width:100%;aspect-ratio:1/1;object-fit:cover;background:#111}
+.mk-card .body{padding:8px 10px 10px}
+.mk-card .title{font-size:13px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.mk-card .price{color:var(--accent-2);font-weight:700;font-size:14px;margin-top:4px}
+.mk-card .meta{color:var(--muted);font-size:11px;margin-top:2px}
+.mk-card .cond-badge{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.75);color:#fff;font-size:10px;padding:3px 8px;border-radius:8px;font-weight:600;text-transform:uppercase}
+.mk-gallery{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;padding-bottom:4px}
+.mk-gallery::-webkit-scrollbar{display:none}
+.mk-gallery .gi{flex-shrink:0;width:280px;height:280px;border-radius:12px;background:#000;object-fit:cover}
+
+.file-label{display:block;padding:14px;text-align:center;background:var(--surface);border:1px dashed var(--accent);border-radius:10px;color:var(--accent-2);font-size:14px;cursor:pointer;margin-bottom:8px}
+.file-label input{display:none}
+.upload-preview{width:100%;max-height:320px;object-fit:contain;border-radius:10px;margin-bottom:10px;background:#000}
+.thumb-row{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;padding:4px 0}
+.thumb-row .t{position:relative;width:70px;height:70px;border-radius:8px;background:#111;flex-shrink:0;overflow:hidden}
+.thumb-row .t img,.thumb-row .t video{width:100%;height:100%;object-fit:cover}
+.thumb-row .t .rm{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer}
+.create-media-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.create-media-grid .file-label{margin:0;font-size:12px;padding:12px 8px}
+.progress{font-size:12px;color:var(--accent-2);text-align:center;margin-top:6px}
+.empty{color:var(--muted);text-align:center;padding:40px 20px;font-size:14px}
+.loading{color:var(--muted);text-align:center;padding:40px 20px;font-size:14px}
+
+.btn-danger{background:var(--danger);color:#fff}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+.verify-banner{background:rgba(0,168,107,.1);border-left:3px solid var(--accent);padding:12px 14px;margin:10px 14px;border-radius:8px;font-size:13px}
+.code-input{font-family:ui-monospace,monospace;font-size:26px;letter-spacing:8px;text-align:center;padding:16px;font-weight:700}
+.settings-row{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.settings-row .label{font-size:15px}
+.settings-row .sub{color:var(--muted);font-size:12px;margin-top:3px}
+.toggle{width:48px;height:28px;border-radius:14px;background:#1a1f1d;position:relative;cursor:pointer;flex-shrink:0}
+.toggle::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#9CA3AF;transition:left .2s}
+.toggle.on{background:var(--primary)}
+.toggle.on::after{left:23px;background:var(--accent-2)}
+.offer-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 14px;font-size:13px}
+.offer-amount{font-size:22px;font-weight:800;color:var(--accent-2)}
+.offer-actions{display:flex;gap:8px;margin-top:12px}
+.offer-actions button{flex:1;padding:10px;font-size:13px}
+.review-card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:8px;font-size:13px}
+.pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700}
+.pill.new{background:#00A86B;color:#000}
+.pill.used{background:#555;color:#fff}
+.pill.refurbished{background:#FFC800;color:#000}
+.offline-banner{background:#FFC800;color:#000;padding:8px 14px;font-size:12px;font-weight:700;text-align:center;display:none}
+.offline-banner.on{display:block}
+.reg-photo{display:flex;flex-direction:column;align-items:center;margin-bottom:14px}
+.reg-photo .circle{width:88px;height:88px;border-radius:50%;background:var(--surface);border:2px dashed var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent-2);font-size:28px;cursor:pointer;overflow:hidden}
+.reg-photo .circle img{width:100%;height:100%;object-fit:cover}
+.consent-box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;font-size:12px;color:var(--muted);line-height:1.5}
+.consent-box a{color:var(--accent-2)}
+.consent-check{display:flex;gap:10px;align-items:flex-start;margin:8px 0;cursor:pointer;font-size:13px}
+.consent-check input{width:auto;margin:2px 0 0}
+</style>
+</head>
+<body>
+
+<div class="offline-banner" id="offline-banner">📡 You're offline. Posts will be queued.</div>
+
+<div id="splash">
+  <div class="splash-logo">
+    <svg viewBox="0 0 200 200" width="130" height="130">
+      <defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#00E58A"/><stop offset="100%" stop-color="#0B3D2E"/>
+      </linearGradient></defs>
+      <circle cx="100" cy="100" r="72" fill="none" stroke="url(#sg)" stroke-width="4"/>
+      <path d="M62 68 h76 a14 14 0 0 1 14 14 v46 a14 14 0 0 1 -14 14 h-40 l-18 16 v-16 h-18 a14 14 0 0 1 -14 -14 v-46 a14 14 0 0 1 14 -14 z" fill="url(#sg)"/>
+      <path d="M90 88 L124 105 L90 122 Z" fill="#000"/>
+    </svg>
+  </div>
+  <div class="splash-name">Tou<span>Rryl</span></div>
+  <div class="splash-tag">by KUMG</div>
+</div>
+
+<div id="screen-auth" class="screen active">
+  <h1>KUMG<span class="accent">.</span></h1>
+  <div class="sub">TouRryl — watch, sell, connect.</div>
+  <div class="error" id="auth-error"></div>
+  <div class="reg-photo" id="reg-photo" style="display:none">
+    <div class="circle" id="reg-photo-circle">+</div>
+    <div style="color:var(--muted);font-size:12px;margin-top:6px">Add a profile photo</div>
+    <input type="file" id="reg-photo-input" accept="image/*" style="display:none">
+  </div>
+  <input id="auth-username" placeholder="Username" autocomplete="off" style="display:none">
+  <input id="auth-email" placeholder="Email" type="email" autocomplete="off">
+  <input id="auth-password" placeholder="Password" type="password">
+  <input id="auth-age" placeholder="Your age" inputmode="numeric" style="display:none">
+  <div class="consent-box" id="reg-consent" style="display:none">
+    <label class="consent-check"><input type="checkbox" id="consent-tos">
+      <span>I agree to the <a href="/privacy" target="_blank">Terms and Privacy Policy</a></span></label>
+  </div>
+  <button id="btn-auth">Log In</button>
+  <div class="link" id="toggle-auth">New here? Create an account</div>
+</div>
+
+<div id="screen-feed" class="screen" style="padding:0">
+  <div class="topbar">
+    <div class="brand">Tou<span>Rryl</span></div>
+    <div style="display:flex;align-items:center;gap:2px">
+      <div class="icon-btn" id="btn-search"><span class="ic" data-icon="search"></span></div>
+      <div class="icon-btn" id="btn-notifications"><span class="ic" data-icon="bell"></span><span class="badge" id="notif-badge" style="display:none">0</span></div>
+    </div>
+  </div>
+  <div class="top-nav">
+    <div class="nav-tab active" data-topnav="home"><span class="ic" data-icon="home"></span>Home</div>
+    <div class="nav-tab" data-topnav="videos"><span class="ic" data-icon="video"></span>Videos</div>
+    <div class="nav-tab" data-topnav="marketplace"><span class="ic" data-icon="market"></span>Market</div>
+    <div class="nav-tab" data-topnav="menu"><span class="ic" data-icon="menu"></span>Menu</div>
+  </div>
+  <div id="view-home">
+    <div class="search-strip"><input id="inline-search" placeholder="Search..." readonly></div>
+    <div class="stories-rail" id="stories-rail"></div>
+    <div class="tabs">
+      <div class="tab active" data-tab="foryou">For You</div>
+      <div class="tab" data-tab="following">Following</div>
+    </div>
+    <div id="feed-list" style="padding:16px"></div>
+  </div>
+  <div id="view-marketplace" style="display:none">
+    <div class="mk-cats" id="mk-cats"></div>
+    <div class="mk-filters" id="mk-filters"></div>
+    <div class="mk-grid" id="mk-grid"></div>
+  </div>
+  <button class="fab" id="btn-new">+</button>
+</div>
+
+<!-- ============ TIKTOK FEED — FIXED CHROME ============ -->
+<div id="screen-tiktok" class="screen">
+
+  <!-- Fixed top tabs -->
+  <div class="tt-fixed-top">
+    <div class="tt-tab" data-tt="following">Following</div>
+    <div class="tt-tab" data-tt="friends">Friends</div>
+    <div class="tt-tab active" data-tt="foryou">For You</div>
+  </div>
+
+  <!-- Fixed top-right buttons -->
+  <div class="tt-fixed-top-right">
+    <button id="btn-tt-search">🔍</button>
+    <button id="btn-tt-mute">🔇</button>
+  </div>
+
+  <!-- Fixed shop badge (shows/hides based on active video) -->
+  <div class="tt-fixed-shop" id="tt-shop">
+    🛒 <span id="tt-shop-text">Shop</span>
+  </div>
+
+  <!-- Only videos scroll here -->
+  <div class="tiktok-scroller" id="tiktok-scroller">
+    <div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted)">Loading videos...</div>
+  </div>
+
+  <!-- Fixed progress bar -->
+  <div class="tt-progress-fixed"><div class="bar" id="tt-progress-bar"></div></div>
+
+  <!-- Fixed bottom-left (author, caption, sound) -->
+  <div class="tt-fixed-bottom-left">
+    <div class="tt-author" id="tt-author" data-user="">@</div>
+    <div class="tt-caption" id="tt-caption"></div>
+    <div id="tt-sound-wrap"></div>
+  </div>
+
+  <!-- Fixed right action rail -->
+  <div class="tt-fixed-actions">
+    <div class="tt-fixed-avatar" id="tt-avatar" data-user="">
+      <div class="avatar" id="tt-avatar-inner">?</div>
+      <div class="plus">+</div>
+    </div>
+    <div class="act like-act" id="tt-like-act" data-tlike="">
+      <div class="icon" id="tt-like-icon">🤍</div>
+      <div class="count" id="tt-like-count">0</div>
+    </div>
+    <div class="act" id="tt-comment-act" data-tcomment="">
+      <div class="icon">💬</div>
+      <div class="count" id="tt-comment-count">0</div>
+    </div>
+    <div class="act" id="tt-save-act" data-tsave="">
+      <div class="icon" id="tt-save-icon">📑</div>
+      <div class="count" id="tt-save-count">0</div>
+    </div>
+    <div class="act" id="tt-repost-act" data-trepost="">
+      <div class="icon">↗️</div>
+      <div class="count">Share</div>
+    </div>
+    <div class="tt-fixed-disc">🎵</div>
+  </div>
+
+  <!-- Fixed search bar -->
+  <div class="tt-fixed-search" id="tt-search-bar">
+    <span class="icon">🔍</span>
+    <span class="text" id="tt-search-text">Search TouRryl</span>
+    <span class="arrow">›</span>
+  </div>
+
+  <!-- Fixed bottom nav -->
+  <div class="tt-fixed-nav">
+    <button class="tt-nav-item active" data-ttnav="home">
+      <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2v-9z"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="tt-nav-item" data-ttnav="explore">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <span>Explore</span>
+    </button>
+    <button class="tt-nav-item" data-ttnav="create">
+      <div class="tt-nav-plus">+</div>
+    </button>
+    <button class="tt-nav-item" data-ttnav="inbox">
+      <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v9a2.5 2.5 0 0 1-2.5 2.5H9l-5 4V5.5z"/></svg>
+      <span>Inbox</span>
+    </button>
+    <button class="tt-nav-item" data-ttnav="me">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+      <span>Me</span>
+    </button>
+  </div>
+</div>
+
+<div id="screen-create" class="screen">
+  <div class="topbar"><div class="brand" id="create-title">New post</div><div class="action" id="btn-cancel">Cancel</div></div>
+  <div style="padding:16px">
+    <div class="create-media-grid">
+      <label class="file-label"><input type="file" id="file-input" accept="image/*,video/*">🖼️ Gallery</label>
+      <label class="file-label"><input type="file" id="camera-photo" accept="image/*" capture="environment">📷 Photo</label>
+      <label class="file-label"><input type="file" id="camera-video" accept="video/*" capture="environment">🎥 Video</label>
+    </div>
+    <div id="preview-wrap"></div>
+    <div class="progress" id="compress-status"></div>
+    <textarea id="post-content" placeholder="Caption... use #hashtags"></textarea>
+    <input id="post-sound" placeholder="🎵 Sound name (optional)">
+    <select id="post-listing">
+      <option value="">🔗 Link to a listing (optional)</option>
+    </select>
+    <div class="error" id="post-error"></div>
+    <button id="btn-post">Post to TouRryl</button>
+  </div>
+</div>
+
+<div id="screen-profile" class="screen">
+  <div class="topbar"><div class="brand">Profile</div><div class="action" id="btn-profile-back">← Back</div></div>
+  <div id="profile-content"></div>
+</div>
+
+<div id="screen-edit" class="screen">
+  <div class="topbar"><div class="brand">Edit profile</div><div class="action" id="btn-edit-cancel">Cancel</div></div>
+  <div style="padding:16px">
+    <label class="file-label"><input type="file" id="avatar-input" accept="image/*">📷 Change avatar</label>
+    <div id="avatar-preview-wrap"></div>
+    <input id="edit-age" placeholder="Age" inputmode="numeric">
+    <input id="edit-country" placeholder="Country">
+    <input id="edit-city" placeholder="City">
+    <textarea id="edit-bio" placeholder="Bio (200 chars)" maxlength="200"></textarea>
+    <div class="error" id="edit-error"></div>
+    <button id="btn-save-profile">Save</button>
+  </div>
+</div>
+
+<div id="screen-notifications" class="screen">
+  <div class="topbar"><div class="brand">Notifications</div><div class="action" id="btn-notif-back">← Back</div></div>
+  <div id="notif-list"></div>
+</div>
+
+<div id="screen-messages" class="screen">
+  <div class="topbar"><div class="brand">Inbox</div><div class="action" id="btn-msg-back">← Back</div></div>
+  <div id="chat-list"></div>
+</div>
+
+<div id="screen-chat" class="screen">
+  <div class="topbar"><div class="brand" id="chat-title">Chat</div><div class="action" id="btn-chat-back">← Back</div></div>
+  <div id="chat-messages"></div>
+  <div class="chat-input">
+    <input id="chat-input" placeholder="Message..." autocomplete="off">
+    <button id="chat-send">Send</button>
+  </div>
+</div>
+
+<div id="screen-search" class="screen">
+  <div class="topbar"><div class="brand">Search</div><div class="action" id="btn-search-back">← Back</div></div>
+  <div style="padding:12px 14px"><input id="search-input" placeholder="Users, posts, #tags, listings" autocomplete="off"></div>
+  <div id="search-results"></div>
+</div>
+
+<div id="screen-hashtag" class="screen">
+  <div class="topbar"><div class="brand" id="hashtag-title">#tag</div><div class="action" id="btn-hashtag-back">← Back</div></div>
+  <div id="hashtag-feed" style="padding:16px"></div>
+</div>
+
+<div id="screen-trending" class="screen">
+  <div class="topbar"><div class="brand">🔥 Trending</div><div class="action" id="btn-trending-back">← Back</div></div>
+  <div class="grid-label">Last 24 hours</div>
+  <div class="trend-grid" id="trend-grid"></div>
+</div>
+
+<div id="screen-saved" class="screen">
+  <div class="topbar"><div class="brand">Saved</div><div class="action" id="btn-saved-back">← Back</div></div>
+  <div class="tabs" style="position:relative;top:0">
+    <div class="tab active" data-savedtab="posts">Posts</div>
+    <div class="tab" data-savedtab="listings">Listings</div>
+  </div>
+  <div id="saved-content" style="padding:16px"></div>
+</div>
+
+<div id="screen-my-listings" class="screen">
+  <div class="topbar"><div class="brand">My listings</div><div class="action" id="btn-mylist-back">← Back</div></div>
+  <div id="my-listings-grid" class="mk-grid"></div>
+</div>
+
+<div id="screen-listing" class="screen">
+  <div class="topbar"><div class="brand" id="listing-title">Listing</div><div class="action" id="btn-listing-back">← Back</div></div>
+  <div id="listing-body" style="padding:16px"></div>
+</div>
+
+<div id="screen-create-listing" class="screen">
+  <div class="topbar"><div class="brand" id="cl-title">New listing</div><div class="action" id="btn-createlist-cancel">Cancel</div></div>
+  <div style="padding:16px">
+    <label class="file-label"><input type="file" id="listing-file" accept="image/*,video/*" multiple>📷 Add photos (multiple)</label>
+    <div class="thumb-row" id="listing-thumbs"></div>
+    <input id="listing-title-in" placeholder="Title">
+    <textarea id="listing-desc" placeholder="Description" maxlength="1000"></textarea>
+    <input id="listing-price" placeholder="Price" type="number" inputmode="decimal" step="0.01">
+    <input id="listing-location" placeholder="Location">
+    <select id="listing-category">
+      <option value="other">Other</option><option value="electronics">Electronics</option>
+      <option value="clothing">Clothing</option><option value="vehicles">Vehicles</option>
+      <option value="home">Home & Garden</option><option value="services">Services</option>
+      <option value="food">Food</option><option value="beauty">Beauty</option>
+      <option value="property">Property</option><option value="jobs">Jobs</option>
+    </select>
+    <select id="listing-condition">
+      <option value="used">Used</option><option value="new">New</option>
+      <option value="refurbished">Refurbished</option>
+    </select>
+    <label class="consent-check" style="padding:6px 0">
+      <input type="checkbox" id="listing-offers" checked>
+      <span>Allow buyers to make offers</span>
+    </label>
+    <div class="error" id="listing-error"></div>
+    <button id="btn-publish-listing">Publish listing</button>
+  </div>
+</div>
+
+<div id="screen-offers" class="screen">
+  <div class="topbar"><div class="brand">My offers</div><div class="action" id="btn-offers-back">← Back</div></div>
+  <div id="offers-list"></div>
+</div>
+
+<div id="screen-offers-received" class="screen">
+  <div class="topbar"><div class="brand" id="offers-received-title">Offers</div><div class="action" id="btn-offers-received-back">← Back</div></div>
+  <div id="offers-received-list"></div>
+</div>
+
+<div id="screen-orders" class="screen">
+  <div class="topbar"><div class="brand">My orders</div><div class="action" id="btn-orders-back">← Back</div></div>
+  <div id="orders-list"></div>
+</div>
+
+<div id="screen-verify" class="screen">
+  <div class="topbar"><div class="brand">Verify</div><div class="action" id="btn-verify-back">← Back</div></div>
+  <div id="verify-body" style="padding:16px"></div>
+</div>
+
+<div id="screen-settings" class="screen">
+  <div class="topbar"><div class="brand">Settings</div><div class="action" id="btn-settings-back">← Back</div></div>
+  <div id="settings-body"></div>
+</div>
+
+<div id="screen-admin" class="screen">
+  <div class="topbar"><div class="brand">Admin</div><div class="action" id="btn-admin-back">← Back</div></div>
+  <div id="admin-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px 14px"></div>
+  <div class="grid-label">Users</div>
+  <div style="padding:0 14px 12px"><input id="admin-user-search" placeholder="Search users..."></div>
+  <div id="admin-users"></div>
+</div>
+
+<div class="drawer-bg" id="drawer-bg"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head" id="drawer-head"></div>
+  <div class="drawer-list">
+    <div class="drawer-item" data-drawer="profile"><span class="ic" data-icon="user"></span>Profile</div>
+    <div class="drawer-item" data-drawer="messages"><span class="ic" data-icon="chat"></span>Inbox<span class="badge" id="drawer-msg-badge" style="display:none">0</span></div>
+    <div class="drawer-item" data-drawer="notifications"><span class="ic" data-icon="bell"></span>Notifications<span class="badge" id="drawer-notif-badge" style="display:none">0</span></div>
+    <div class="drawer-item" data-drawer="trending"><span class="ic" data-icon="fire"></span>Trending</div>
+    <div class="drawer-item" data-drawer="saved"><span class="ic" data-icon="bookmark"></span>Saved</div>
+    <div class="drawer-item" data-drawer="offers"><span class="ic" data-icon="tag"></span>My offers</div>
+    <div class="drawer-item" data-drawer="create-listing"><span class="ic" data-icon="tag"></span>Sell something</div>
+    <div class="drawer-item" data-drawer="my-listings"><span class="ic" data-icon="box"></span>My listings</div>
+    <div class="drawer-item" data-drawer="orders"><span class="ic" data-icon="receipt"></span>My orders</div>
+    <div class="drawer-item" data-drawer="verify"><span class="ic" data-icon="shieldCheck"></span>Verify</div>
+    <div class="drawer-item" data-drawer="settings"><span class="ic" data-icon="settings"></span>Settings</div>
+    <div class="drawer-item" data-drawer="admin" id="drawer-admin" style="display:none"><span class="ic" data-icon="shield"></span>Admin</div>
+    <div class="drawer-item" data-drawer="logout"><span class="ic" data-icon="exit"></span>Log out</div>
+  </div>
+  <div class="drawer-foot">TouRryl • KUMG • v3</div>
+</div>
+
+<div class="sheet-bg" id="sheet-bg"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" id="sheet-title">Sheet</div>
+  <div class="sheet-body" id="sheet-body"></div>
+  <div class="sheet-input" id="sheet-input-wrap">
+    <input id="comment-input" placeholder="Add a comment...">
+    <button id="comment-send">Send</button>
+  </div>
+</div>
+
+<button id="btn-logout" style="display:none"></button>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const API = "http://127.0.0.1:8000";
+let token = localStorage.getItem("tourryl_token") || null;
+let sessionId = localStorage.getItem("tourryl_session") || null;
+let myUserId = null;
+let isRegister = false;
+let pendingFile = null, pendingAvatarFile = null;
+let listingFiles = [];
+let currentTab = "foryou", savedTab = "posts", mkCurrentCat = "all";
+let mkFilters = { min_price: null, max_price: null, condition: null };
+let viewingUserId = null, activePostId = null, activeListingId = null;
+let editingPostId = null, editingListingId = null;
+let chatId = null, chatOtherId = null, lastMsgId = 0;
+let deviceFingerprint = null;
+let tiktokObserver = null, tiktokVideos = [];
+let tiktokMuted = true;
+let activeTikTokPost = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+// ============================================================
+// ICONS
+// ============================================================
+const ICONS = {
+  home:{on:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.4 2.6a1 1 0 0 1 1.2 0l8.4 6.6a1 1 0 0 1 .4.8V20a2 2 0 0 1-2 2h-4.2a1 1 0 0 1-1-1v-4.6a2.2 2.2 0 0 0-4.4 0V21a1 1 0 0 1-1 1H4.6a2 2 0 0 1-2-2v-10a1 1 0 0 1 .4-.8l8.4-6.6Z"/></svg>',off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M11.4 2.6a1 1 0 0 1 1.2 0l8.4 6.6a1 1 0 0 1 .4.8V20a2 2 0 0 1-2 2h-4.2a1 1 0 0 1-1-1v-4.6a2.2 2.2 0 0 0-4.4 0V21a1 1 0 0 1-1 1H4.6a2 2 0 0 1-2-2v-10a1 1 0 0 1 .4-.8l8.4-6.6Z"/></svg>'},
+  video:{on:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>',off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>'},
+  market:{on:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.4 3.1a1 1 0 0 1 .9-.6h13.4a1 1 0 0 1 .9.6l1.9 4.6A3.6 3.6 0 0 1 20 12.3V20a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20v-7.7a3.6 3.6 0 0 1-1.5-4.6l1.9-4.6Z"/></svg>',off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4.4 3.1a1 1 0 0 1 .9-.6h13.4a1 1 0 0 1 .9.6l1.9 4.6A3.6 3.6 0 0 1 20 12.3V20a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 20v-7.7a3.6 3.6 0 0 1-1.5-4.6l1.9-4.6Z"/></svg>'},
+  menu:{on:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="5" width="18" height="2.4" rx="1.2"/><rect x="3" y="10.8" width="18" height="2.4" rx="1.2"/><rect x="3" y="16.6" width="18" height="2.4" rx="1.2"/></svg>',off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>'},
+  search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 4.5 1.5 6 1.5 6h-15S6 12.5 6 8Z"/><path d="M10 18a2 2 0 0 0 4 0"/></svg>',
+  chat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v9a2.5 2.5 0 0 1-2.5 2.5H9l-5 4V5.5Z"/></svg>',
+  user:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+  fire:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-2 1-3 1-3s-1 4 2 6c0-4 2-8 2-12Z"/></svg>',
+  bookmark:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg>',
+  tag:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9Z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
+  box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4V7Z"/><path d="M3 7l9 4 9-4M12 11v10"/></svg>',
+  receipt:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3Z"/><path d="M9 8h6M9 12h6"/></svg>',
+  shieldCheck:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4" stroke-linecap="round"/></svg>',
+  shield:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/></svg>',
+  exit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l-4-4 4-4M5 12h11"/></svg>',
+  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>'
+};
+function icon(name, state) {
+  const d = ICONS[name]; if (!d) return "";
+  const svg = (typeof d === "string") ? d : (d[state || "off"] || d.off);
+  return `<i class="ic" data-icon="${name}">${svg}</i>`;
+}
+function hydrateIcons(root) {
+  (root || document).querySelectorAll('[data-icon]').forEach(el => {
+    const name = el.dataset.icon;
+    const state = el.classList.contains("active") ? "on" : "off";
+    el.innerHTML = icon(name, state);
+  });
+}
+
+// ============================================================
+// API / SHOW
+// ============================================================
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  const el = $(id); if (el) el.classList.add("active");
+  hydrateIcons();
+}
+async function api(path, opts = {}) {
+  opts.headers = opts.headers || {};
+  if (token) opts.headers["Authorization"] = "Bearer " + token;
+  if (sessionId) opts.headers["X-Session-Id"] = sessionId;
+  if (opts.body && !(opts.body instanceof FormData)) {
+    opts.headers["Content-Type"] = "application/json";
+    if (typeof opts.body === "object") opts.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(API + path, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || "Request failed");
+  return data;
+}
+
+// ============================================================
+// SPLASH / OFFLINE
+// ============================================================
+const splashStart = Date.now();
+function hideSplash() {
+  const wait = Math.max(0, 1200 - (Date.now() - splashStart));
+  setTimeout(() => { const s = $("splash"); if (s) { s.classList.add("hide"); setTimeout(() => s.remove(), 400); } }, wait);
+}
+setTimeout(hideSplash, 5000);
+function setOfflineBanner(on) { const b = $("offline-banner"); if (b) b.classList.toggle("on", on); }
+window.addEventListener("online", () => setOfflineBanner(false));
+window.addEventListener("offline", () => setOfflineBanner(true));
+
+// ============================================================
+// AUTH
+// ============================================================
+$("toggle-auth").onclick = () => {
+  isRegister = !isRegister;
+  $("auth-username").style.display = isRegister ? "block" : "none";
+  $("auth-age").style.display = isRegister ? "block" : "none";
+  $("reg-photo").style.display = isRegister ? "flex" : "none";
+  $("reg-consent").style.display = isRegister ? "block" : "none";
+  $("btn-auth").textContent = isRegister ? "Create account" : "Log In";
+  $("toggle-auth").textContent = isRegister ? "Have an account? Log in" : "New here? Create an account";
+  $("auth-error").textContent = "";
+};
+let regPhotoFile = null;
+$("reg-photo-circle").onclick = () => $("reg-photo-input").click();
+$("reg-photo-input").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  regPhotoFile = f;
+  $("reg-photo-circle").innerHTML = `<img src="${URL.createObjectURL(f)}">`;
+};
+$("btn-auth").onclick = async () => {
+  $("auth-error").textContent = "";
+  const email = $("auth-email").value.trim();
+  const password = $("auth-password").value;
+  const username = $("auth-username").value.trim();
+  const ageRaw = $("auth-age").value.trim();
+  const age = ageRaw ? parseInt(ageRaw, 10) : null;
+  if (!email || !password) return $("auth-error").textContent = "Fill in all fields";
+  if (isRegister && username.length < 3) return $("auth-error").textContent = "Username 3+ chars";
+  if (isRegister && password.length < 6) return $("auth-error").textContent = "Password 6+ chars";
+  if (isRegister && (age === null || isNaN(age) || age < 13)) return $("auth-error").textContent = "Age 13+ required";
+  if (isRegister && !$("consent-tos").checked) return $("auth-error").textContent = "You must agree to the Terms";
+  $("btn-auth").disabled = true;
+  try {
+    const body = isRegister ? { username, email, password, age } : { email, password };
+    const data = await api(isRegister ? "/auth/register" : "/auth/login", { method: "POST", body });
+    token = data.token; localStorage.setItem("tourryl_token", token);
+    if (data.session_id) { sessionId = data.session_id; localStorage.setItem("tourryl_session", sessionId); }
+    if (isRegister && regPhotoFile) {
+      try {
+        const blob = await compressImage(regPhotoFile, 512, 0.85);
+        const fd = new FormData(); fd.append("file", blob, "avatar.jpg");
+        await api("/me/avatar", { method: "POST", body: fd });
+      } catch {}
+    }
+    enterApp();
+  } catch (e) { $("auth-error").textContent = e.message; }
+  finally { $("btn-auth").disabled = false; }
+};
+$("btn-logout").onclick = async () => {
+  try { if (sessionId) await api(`/sessions/${sessionId}`, { method: "DELETE" }); } catch {}
+  token = null; sessionId = null;
+  localStorage.removeItem("tourryl_token");
+  localStorage.removeItem("tourryl_session");
+  show("screen-auth"); $("auth-password").value = "";
+};
+
+// ============================================================
+// TOP NAV / DRAWER
+// ============================================================
+document.querySelectorAll(".nav-tab").forEach(t => {
+  t.onclick = () => {
+    const which = t.dataset.topnav;
+    if (which === "menu") { openDrawer(); return; }
+    document.querySelectorAll(".nav-tab").forEach(x => x.classList.remove("active"));
+    t.classList.add("active"); hydrateIcons();
+    if (which === "home") {
+      $("view-home").style.display = "block"; $("view-marketplace").style.display = "none";
+      $("btn-new").style.display = "flex";
+    } else if (which === "videos") {
+      $("view-home").style.display = "none"; $("view-marketplace").style.display = "none";
+      $("btn-new").style.display = "none";
+      openTikTok();
+    } else if (which === "marketplace") {
+      $("view-home").style.display = "none"; $("view-marketplace").style.display = "block";
+      $("btn-new").style.display = "none";
+      loadMarketplace();
+    }
+  };
+});
+async function openDrawer() {
+  $("drawer").classList.add("open"); $("drawer-bg").classList.add("open");
+  try {
+    const me = await api("/me");
+    const init = (me.username || "?")[0].toUpperCase();
+    const av = me.avatar_url ? `<img src="${API}${me.avatar_url}">` : init;
+    $("drawer-head").innerHTML = `<div class="avatar">${av}</div>
+      <div><div class="name">@${esc(me.username)}</div>
+      <div class="handle">${me.followers_count} followers</div></div>`;
+    $("drawer-admin").style.display = me.is_admin ? "flex" : "none";
+  } catch {}
+  hydrateIcons(); refreshBadges();
+}
+function closeDrawer() { $("drawer").classList.remove("open"); $("drawer-bg").classList.remove("open"); }
+$("drawer-bg").onclick = closeDrawer;
+document.querySelectorAll("[data-drawer]").forEach(el => {
+  el.onclick = async () => {
+    const which = el.dataset.drawer; closeDrawer();
+    if (which === "profile") { const me = await api("/me"); openProfile(me.id); }
+    else if (which === "messages") { show("screen-messages"); loadConversations(); }
+    else if (which === "notifications") $("btn-notifications").click();
+    else if (which === "trending") openTrending();
+    else if (which === "saved") openSaved();
+    else if (which === "create-listing") openCreateListing();
+    else if (which === "my-listings") openMyListings();
+    else if (which === "offers") openMyOffers();
+    else if (which === "orders") openOrders();
+    else if (which === "verify") openVerify();
+    else if (which === "settings") openSettings();
+    else if (which === "admin") openAdmin();
+    else if (which === "logout") $("btn-logout").click();
+  };
+});
+
+// ============================================================
+// COMPRESSION
+// ============================================================
+async function compressImage(file, maxDim = 1280, quality = 0.82) {
+  const img = await new Promise((res, rej) => {
+    const i = new Image(); i.onload = () => res(i); i.onerror = rej;
+    i.src = URL.createObjectURL(file);
+  });
+  let w = img.width, h = img.height;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  w = Math.round(w*scale); h = Math.round(h*scale);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d").drawImage(img, 0, 0, w, h);
+  return await new Promise(res => c.toBlob(res, "image/jpeg", quality));
+}
+async function compressVideo(file, maxDim = 720, vbps = 900_000) {
+  if (!window.MediaRecorder) return file;
+  const v = document.createElement("video"); v.muted = true; v.playsInline = true;
+  v.src = URL.createObjectURL(file);
+  await new Promise((res, rej) => { v.onloadedmetadata = res; v.onerror = rej; });
+  let w = v.videoWidth, h = v.videoHeight;
+  const scale = Math.min(1, maxDim/Math.max(w, h));
+  w = Math.round(w*scale) || 640; h = Math.round(h*scale) || 360;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  const stream = c.captureStream(30);
+  let mime = "video/webm;codecs=vp9";
+  if (!MediaRecorder.isTypeSupported(mime)) mime = "video/webm";
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: vbps });
+  const chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  return await new Promise(resolve => {
+    rec.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+    v.onplay = () => { const draw = () => { if (v.paused || v.ended) return;
+      ctx.drawImage(v, 0, 0, w, h); requestAnimationFrame(draw); }; draw(); };
+    v.onended = () => rec.state !== "inactive" && rec.stop();
+    rec.start(); v.play().catch(() => { rec.stop(); resolve(file); });
+    setTimeout(() => { if (rec.state !== "inactive") rec.stop(); }, 60000);
+  });
+}
+
+// ============================================================
+// HOME FEED
+// ============================================================
+document.querySelectorAll(".tabs .tab[data-tab]").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll(".tabs .tab[data-tab]").forEach(x => x.classList.remove("active"));
+    t.classList.add("active"); currentTab = t.dataset.tab; loadFeed();
+  };
+});
+async function loadFeed() {
+  const list = $("feed-list"); list.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const posts = await api(currentTab === "foryou" ? "/feed/foryou" : "/feed/following");
+    if (!posts.length) {
+      list.innerHTML = '<div class="empty">' + (currentTab === "following"
+        ? "Follow people to see their posts." : "No posts yet. Tap + to start.") + '</div>';
+      return;
+    }
+    list.innerHTML = posts.map(renderPost).join("");
+    bindPostEvents();
+  } catch (e) {
+    list.innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>';
+  }
+}
+function linkify(text) {
+  return esc(text).replace(/#(\w{1,50})/g, (_, t) => `<a class="tag" href="#" data-link-tag="${t}">#${t}</a>`);
+}
+function renderPost(p) {
+  const initial = (p.username || "?")[0].toUpperCase();
+  const time = new Date(p.created_at + "Z").toLocaleString();
+  const avatar = p.avatar_url ? `<img src="${API}${p.avatar_url}">` : initial;
+  const sponsored = p.sponsored ? '<span class="sponsored-tag">Sponsored</span>' : "";
+  let media = "";
+  if (p.media_url) {
+    const url = API + p.media_url;
+    media = p.media_type === "video"
+      ? `<video class="post-media" src="${url}" controls playsinline preload="metadata"></video>`
+      : `<img class="post-media" src="${url}" alt="" loading="lazy">`;
+  }
+  let linked = "";
+  if (p.linked_listing) {
+    const ll = p.linked_listing;
+    const lthumb = ll.media_url ? `<img class="thumb" src="${API}${ll.media_url}">` : `<div class="thumb"></div>`;
+    linked = `<div class="linked-listing" data-lid="${ll.id}">
+      ${lthumb}
+      <div class="info"><div class="title">🛒 ${esc(ll.title)}</div>
+      <div class="price">${esc(ll.currency)} ${Number(ll.price).toFixed(2)}</div></div>
+    </div>`;
+  }
+  return `<div class="post" data-id="${p.id}" data-post-id="${p.id}">
+    <div class="post-head">
+      <div class="avatar" data-user="${p.author_id}">${avatar}</div>
+      <div style="flex:1">
+        <div class="post-user" data-user="${p.author_id}">@${esc(p.username)} ${sponsored}</div>
+        <div class="post-time">${time}</div>
+      </div>
+    </div>
+    ${p.content ? `<div class="post-body">${linkify(p.content)}</div>` : ""}
+    ${media}
+    ${linked}
+    <div class="post-actions">
+      <span class="like-btn ${p.liked ? 'liked' : ''}" data-like="${p.id}">${p.liked ? '❤️' : '🤍'} <span class="like-count">${p.likes_count || 0}</span></span>
+      <span data-comment="${p.id}">💬 ${p.comments_count || 0}</span>
+      <span class="save-btn ${p.saved ? 'saved' : ''}" data-save="${p.id}">${p.saved ? '🔖' : '📑'}</span>
+      <span data-repost="${p.id}" style="color:${p.reposted ? 'var(--accent-2)' : ''}">🔁</span>
+      <span class="post-menu" data-menu="${p.id}" data-author="${p.author_id}">⋯</span>
+    </div>
+  </div>`;
+}
+function bindPostEvents() {
+  document.querySelectorAll("[data-like]").forEach(el => el.onclick = async () => {
+    try {
+      const r = await api(`/posts/${el.dataset.like}/like`, { method: "POST" });
+      const c = el.querySelector(".like-count");
+      const n = parseInt(c.textContent) || 0;
+      c.textContent = r.liked ? n + 1 : Math.max(0, n - 1);
+      el.classList.toggle("liked", r.liked);
+      el.childNodes[0].nodeValue = r.liked ? "❤️ " : "🤍 ";
+    } catch {}
+  });
+  document.querySelectorAll("[data-comment]").forEach(el => el.onclick = () => openComments(el.dataset.comment));
+  document.querySelectorAll("[data-save]").forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    try {
+      const r = await api("/saves/toggle", { method: "POST",
+        body: { item_type: "post", item_id: parseInt(el.dataset.save) } });
+      el.classList.toggle("saved", r.saved);
+      el.textContent = r.saved ? "🔖" : "📑";
+    } catch {}
+  });
+  document.querySelectorAll("[data-repost]").forEach(el => el.onclick = async (e) => {
+    e.stopPropagation();
+    try {
+      const r = await api(`/posts/${el.dataset.repost}/repost`, { method: "POST" });
+      el.style.color = r.reposted ? "var(--accent-2)" : "";
+    } catch {}
+  });
+  document.querySelectorAll("[data-user]").forEach(el => el.onclick = () => openProfile(el.dataset.user));
+  document.querySelectorAll("[data-menu]").forEach(el => el.onclick = (e) => {
+    e.stopPropagation(); openActionMenu(el.dataset.menu, el.dataset.author);
+  });
+  document.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
+}
+document.addEventListener("click", e => {
+  const a = e.target.closest("[data-link-tag]");
+  if (a) { e.preventDefault(); openHashtag(a.dataset.linkTag); }
+});
+
+// ============================================================
+// CREATE POST
+// ============================================================
+$("btn-new").onclick = async () => {
+  editingPostId = null; pendingFile = null;
+  $("post-content").value = ""; $("preview-wrap").innerHTML = "";
+  $("file-input").value = ""; $("camera-photo").value = ""; $("camera-video").value = "";
+  $("post-sound").value = ""; $("post-listing").value = "";
+  $("post-error").textContent = ""; $("compress-status").textContent = "";
+  $("create-title").textContent = "New post"; $("btn-post").textContent = "Post to TouRryl";
+  try {
+    const me = await api("/me");
+    const mine = await api(`/listings?seller_id=${me.id}&limit=50`);
+    const sel = $("post-listing");
+    sel.innerHTML = '<option value="">🔗 Link to a listing (optional)</option>';
+    mine.forEach(l => {
+      const opt = document.createElement("option");
+      opt.value = l.id; opt.textContent = l.title.slice(0, 40);
+      sel.appendChild(opt);
+    });
+  } catch {}
+  show("screen-create");
+};
+$("btn-cancel").onclick = () => { editingPostId = null; show("screen-feed"); };
+function handleFilePick(e) {
+  const f = e.target.files[0]; if (!f) return;
+  pendingFile = f;
+  const url = URL.createObjectURL(f);
+  $("preview-wrap").innerHTML = f.type.startsWith("video")
+    ? `<video class="upload-preview" src="${url}" controls playsinline></video>`
+    : `<img class="upload-preview" src="${url}">`;
+}
+$("file-input").onchange = handleFilePick;
+$("camera-photo").onchange = handleFilePick;
+$("camera-video").onchange = handleFilePick;
+$("btn-post").onclick = async () => {
+  const content = $("post-content").value.trim();
+  if (!content && !pendingFile) return $("post-error").textContent = "Add text or media";
+  $("btn-post").disabled = true;
+  $("btn-post").textContent = "Preparing...";
+  $("post-error").textContent = ""; $("compress-status").textContent = "";
+  try {
+    let blob = pendingFile;
+    if (pendingFile) {
+      $("compress-status").textContent = "Compressing...";
+      if (pendingFile.type.startsWith("image")) blob = await compressImage(pendingFile);
+      else if (pendingFile.type.startsWith("video")) blob = await compressVideo(pendingFile);
+    }
+    let media_url = null, media_type = null;
+    if (blob) {
+      $("btn-post").textContent = "Uploading...";
+      const ext = blob.type.includes("webm") ? "webm" : blob.type.startsWith("video") ? "mp4" : "jpg";
+      const fd = new FormData(); fd.append("file", blob, "upload." + ext);
+      const up = await api("/upload", { method: "POST", body: fd });
+      media_url = up.url; media_type = up.type;
+    }
+    const body = { content, media_url, media_type,
+                   sound_name: $("post-sound").value.trim() || null };
+    const lid = $("post-listing").value;
+    if (lid) body.listing_id = parseInt(lid);
+    const res = await api("/posts", { method: "POST", body });
+    if (res && res.flagged === "restricted") alert("Your post is under review.");
+    show("screen-feed"); loadFeed();
+  } catch (e) { $("post-error").textContent = e.message; }
+  finally { $("btn-post").textContent = "Post to TouRryl"; $("btn-post").disabled = false; }
+};
+
+// ============================================================
+// POST MENU
+// ============================================================
+function openActionMenu(postId, authorId) {
+  const isMine = String(authorId) === String(myUserId);
+  const opts = isMine ? ["Delete post", "Cancel"] : ["Report post", "Block user", "Cancel"];
+  $("sheet-title").textContent = "Options";
+  $("sheet-body").innerHTML = opts.map(o =>
+    `<div class="notif" style="cursor:pointer;padding:16px;border-bottom:1px solid var(--line);font-size:15px">${o}</div>`).join("");
+  $("sheet-input-wrap").style.display = "none";
+  openSheet();
+  $("sheet-body").querySelectorAll(".notif").forEach(el => {
+    el.onclick = async () => {
+      const label = el.textContent; closeSheet();
+      if (label === "Delete post") {
+        if (!confirm("Delete this post?")) return;
+        try { await api(`/posts/${postId}`, { method: "DELETE" }); loadFeed(); } catch (e) { alert(e.message); }
+      } else if (label === "Report post") {
+        const reason = prompt("Reason: spam, harassment, hate, violence, nudity, other");
+        if (!reason) return;
+        try { await api("/reports", { method: "POST", body: { post_id: parseInt(postId), reason } });
+              alert("Reported."); } catch (e) { alert(e.message); }
+      } else if (label === "Block user") {
+        if (!confirm("Block this user?")) return;
+        try { await api(`/users/${authorId}/block`, { method: "POST" }); loadFeed(); } catch (e) { alert(e.message); }
+      }
+    };
+  });
+}
+
+// ============================================================
+// COMMENTS SHEET
+// ============================================================
+function openSheet() { $("sheet").classList.add("open"); $("sheet-bg").classList.add("open"); }
+function closeSheet() { $("sheet").classList.remove("open"); $("sheet-bg").classList.remove("open"); }
+$("sheet-bg").onclick = closeSheet;
+async function openComments(postId) {
+  activePostId = postId;
+  $("sheet-body").innerHTML = '<div class="loading">Loading...</div>';
+  $("sheet-title").textContent = "Comments";
+  $("sheet-input-wrap").style.display = "flex";
+  openSheet();
+  await refreshComments();
+}
+async function refreshComments() {
+  try {
+    const list = await api(`/posts/${activePostId}/comments`);
+    if (!list.length) { $("sheet-body").innerHTML = '<div class="empty">Be the first to comment.</div>'; return; }
+    $("sheet-body").innerHTML = list.map(renderComment).join("");
+    document.querySelectorAll("[data-clike]").forEach(el => el.onclick = async () => {
+      try {
+        const r = await api(`/comments/${el.dataset.clike}/like`, { method: "POST" });
+        const parts = el.textContent.trim().split(" ");
+        const n = parseInt(parts[1]) || 0;
+        el.textContent = `${r.liked ? '❤️' : '🤍'} ${r.liked ? n + 1 : Math.max(0, n - 1)}`;
+        el.classList.toggle("liked", r.liked);
+      } catch {}
+    });
+  } catch (e) { $("sheet-body").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+function renderComment(c) {
+  const init = (c.username || "?")[0].toUpperCase();
+  const av = c.avatar_url ? `<img src="${API}${c.avatar_url}">` : init;
+  return `<div class="comment"><div class="avatar">${av}</div>
+    <div class="comment-main">
+      <div class="comment-head"><b>@${esc(c.username)}</b><span>${new Date(c.created_at + "Z").toLocaleTimeString()}</span></div>
+      <div class="comment-body">${esc(c.body)}</div>
+      <div class="comment-actions">
+        <span data-clike="${c.id}" class="${c.liked ? 'liked' : ''}">${c.liked ? '❤️' : '🤍'} ${c.likes_count || 0}</span>
+      </div>
+    </div></div>`;
+}
+$("comment-send").onclick = async () => {
+  const body = $("comment-input").value.trim(); if (!body) return;
+  $("comment-send").disabled = true;
+  try {
+    await api(`/posts/${activePostId}/comments`, { method: "POST", body: { body } });
+    $("comment-input").value = ""; await refreshComments();
+  } catch (e) { alert(e.message); }
+  finally { $("comment-send").disabled = false; }
+};
+
+// ============================================================
+// TIKTOK FEED — FIXED CHROME
+// ============================================================
+async function openTikTok() {
+  const scroller = $("tiktok-scroller");
+  scroller.innerHTML = '<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted)">Loading videos...</div>';
+  show("screen-tiktok");
+  try {
+    const posts = await api("/feed/videos?limit=30");
+    if (!posts.length) {
+      scroller.innerHTML = '<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted);flex-direction:column;gap:10px;text-align:center;padding:20px">' +
+        '<div style="font-size:40px">📹</div><div>No videos yet.</div><div style="font-size:12px">Post a video to see it here.</div></div>';
+      return;
+    }
+    tiktokVideos = posts;
+    // Render only video + tap-target + progress inside each slide
+    scroller.innerHTML = posts.map((p, i) => `
+      <div class="tiktok-slide" data-idx="${i}" data-post-id="${p.id}">
+        <video src="${API}${p.media_url}" loop playsinline preload="metadata"></video>
+        <div class="tap-target"></div>
+      </div>
+    `).join("");
+    bindTikTok();
+    // Show first slide's data in the fixed overlay
+    if (tiktokVideos.length) updateActiveTikTokOverlay(tiktokVideos[0]);
+  } catch (e) {
+    scroller.innerHTML = '<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--danger)">' + esc(e.message) + '</div>';
+  }
+}
+
+function bindTikTok() {
+  const scroller = $("tiktok-scroller");
+  const slides = scroller.querySelectorAll(".tiktok-slide");
+
+  if (tiktokObserver) tiktokObserver.disconnect();
+  tiktokObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const vid = entry.target.querySelector("video");
+      if (!vid) return;
+      const idx = parseInt(entry.target.dataset.idx);
+      if (entry.isIntersecting) {
+        vid.muted = tiktokMuted;
+        vid.volume = 1.0;
+        vid.play().catch(() => {});
+        // Update fixed overlay with this slide's data
+        if (tiktokVideos[idx]) updateActiveTikTokOverlay(tiktokVideos[idx]);
+      } else {
+        vid.pause();
+        vid.currentTime = 0;
+      }
+    });
+  }, { threshold: 0.6 });
+
+  slides.forEach(s => {
+    tiktokObserver.observe(s);
+    const vid = s.querySelector("video");
+    const tap = s.querySelector(".tap-target");
+    let lastTap = 0;
+    tap.addEventListener("click", (e) => {
+      if (tiktokMuted) {
+        tiktokMuted = false;
+        slides.forEach(sl => {
+          const v = sl.querySelector("video");
+          if (v) v.muted = false;
+        });
+        const mb = $("btn-tt-mute");
+        if (mb) mb.textContent = "🔊";
+        return;
+      }
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        const postId = s.dataset.postId;
+        const likeIcon = $("tt-like-icon");
+        const likeAct = $("tt-like-act");
+        if (likeAct && !likeAct.classList.contains("liked")) {
+          const rect = s.getBoundingClientRect();
+          const heart = document.createElement("div");
+          heart.className = "heart-pop";
+          heart.textContent = "❤️";
+          heart.style.left = (e.clientX - rect.left) + "px";
+          heart.style.top = (e.clientY - rect.top) + "px";
+          s.appendChild(heart);
+          setTimeout(() => heart.remove(), 800);
+          likeAct.click();
+        }
+        lastTap = 0;
+      } else {
+        lastTap = now;
+        if (vid.paused) vid.play().catch(() => {}); else vid.pause();
+      }
+    });
+    // Progress bar (updates the fixed progress bar)
+    vid.addEventListener("timeupdate", () => {
+      const active = document.querySelector(".tiktok-slide.active-slide");
+      if (active && active.dataset.postId === s.dataset.postId) {
+        const bar = $("tt-progress-bar");
+        if (vid.duration) bar.style.width = ((vid.currentTime / vid.duration) * 100) + "%";
+      }
+    });
+    vid.addEventListener("play", () => {
+      slides.forEach(x => x.classList.remove("active-slide"));
+      s.classList.add("active-slide");
+    });
+  });
+
+  // Fixed action buttons — data-targets updated by updateActiveTikTokOverlay
+  $("tt-like-act").onclick = async () => {
+    const pid = $("tt-like-act").dataset.tlike;
+    if (!pid) return;
+    try {
+      const r = await api(`/posts/${pid}/like`, { method: "POST" });
+      const icon = $("tt-like-icon");
+      const cnt = $("tt-like-count");
+      const n = parseInt(cnt.textContent) || 0;
+      icon.textContent = r.liked ? "❤️" : "🤍";
+      cnt.textContent = r.liked ? n + 1 : Math.max(0, n - 1);
+      $("tt-like-act").classList.toggle("liked", r.liked);
+      // Update cached post
+      const cached = tiktokVideos.find(p => String(p.id) === String(pid));
+      if (cached) { cached.liked = r.liked; cached.likes_count = parseInt(cnt.textContent); }
+    } catch {}
+  };
+  $("tt-comment-act").onclick = () => {
+    const pid = $("tt-comment-act").dataset.tcomment;
+    if (pid) openComments(pid);
+  };
+  $("tt-save-act").onclick = async () => {
+    const pid = $("tt-save-act").dataset.tsave;
+    if (!pid) return;
+    try {
+      const r = await api("/saves/toggle", { method: "POST",
+        body: { item_type: "post", item_id: parseInt(pid) } });
+      $("tt-save-icon").textContent = r.saved ? "🔖" : "📑";
+    } catch {}
+  };
+  $("tt-repost-act").onclick = async () => {
+    const pid = $("tt-repost-act").dataset.trepost;
+    if (!pid) return;
+    try {
+      const r = await api(`/posts/${pid}/repost`, { method: "POST" });
+      $("tt-repost-act").style.color = r.reposted ? "var(--accent-2)" : "";
+    } catch {}
+  };
+  $("tt-avatar").onclick = () => {
+    const uid = $("tt-avatar").dataset.user;
+    if (uid) openProfile(uid);
+  };
+  $("tt-author").onclick = () => {
+    const uid = $("tt-author").dataset.user;
+    if (uid) openProfile(uid);
+  };
+
+  // Top-right search + mute
+  $("btn-tt-search").onclick = () => {
+    if (tiktokObserver) tiktokObserver.disconnect();
+    show("screen-search");
+    setTimeout(() => $("search-input").focus(), 100);
+  };
+  $("btn-tt-mute").onclick = (e) => {
+    e.stopPropagation();
+    tiktokMuted = !tiktokMuted;
+    document.querySelectorAll(".tiktok-slide video").forEach(v => { v.muted = tiktokMuted; });
+    $("btn-tt-mute").textContent = tiktokMuted ? "🔇" : "🔊";
+  };
+
+  // Top tabs
+  document.querySelectorAll("[data-tt]").forEach(el => el.onclick = () => {
+    if (el.dataset.tt === "following") {
+      if (tiktokObserver) tiktokObserver.disconnect();
+      currentTab = "following";
+      show("screen-feed");
+      document.querySelectorAll(".nav-tab").forEach(x => x.classList.toggle("active", x.dataset.topnav === "home"));
+      hydrateIcons();
+      $("view-home").style.display = "block"; $("view-marketplace").style.display = "none";
+      $("btn-new").style.display = "flex";
+      document.querySelectorAll(".tabs .tab[data-tab]").forEach(x => x.classList.toggle("active", x.dataset.tab === "following"));
+      loadFeed();
+      return;
+    }
+    document.querySelectorAll("[data-tt]").forEach(x => x.classList.remove("active"));
+    el.classList.add("active");
+  });
+
+  // Bottom nav
+  document.querySelectorAll("[data-ttnav]").forEach(el => el.onclick = () => {
+    const v = el.dataset.ttnav;
+    if (v === "home") { if (tiktokObserver) tiktokObserver.disconnect(); show("screen-feed");
+      document.querySelectorAll(".nav-tab").forEach(x => x.classList.toggle("active", x.dataset.topnav === "home"));
+      hydrateIcons(); $("view-home").style.display = "block"; $("view-marketplace").style.display = "none"; $("btn-new").style.display = "flex"; }
+    else if (v === "explore") { if (tiktokObserver) tiktokObserver.disconnect(); show("screen-feed");
+      document.querySelectorAll(".nav-tab").forEach(x => x.classList.toggle("active", x.dataset.topnav === "marketplace"));
+      hydrateIcons(); $("view-home").style.display = "none"; $("view-marketplace").style.display = "block"; $("btn-new").style.display = "none";
+      loadMarketplace(); }
+    else if (v === "create") { if (tiktokObserver) tiktokObserver.disconnect(); $("btn-new").click(); }
+    else if (v === "inbox") { if (tiktokObserver) tiktokObserver.disconnect(); show("screen-messages"); loadConversations(); }
+    else if (v === "me") { if (tiktokObserver) tiktokObserver.disconnect(); openProfile(myUserId); }
+  });
+
+  // Search bar
+  $("tt-search-bar").onclick = () => {
+    if (tiktokObserver) tiktokObserver.disconnect();
+    show("screen-search");
+    setTimeout(() => $("search-input").focus(), 100);
+  };
+}
+
+// Update fixed overlay with the active post
+function updateActiveTikTokOverlay(p) {
+  activeTikTokPost = p;
+  // Author
+  $("tt-author").textContent = "@" + (p.username || "");
+  $("tt-author").dataset.user = p.author_id;
+  $("tt-avatar").dataset.user = p.author_id;
+  const av = p.avatar_url
+    ? `<img src="${API}${p.avatar_url}">`
+    : (p.username || "?")[0].toUpperCase();
+  $("tt-avatar-inner").innerHTML = av;
+  // Caption + hashtags
+  const caption = p.content || "";
+  const hashtags = caption.match(/#\w+/g) || [];
+  const cleanCaption = caption.replace(/#\w+/g, "").trim();
+  let capHtml = "";
+  if (cleanCaption) capHtml += esc(cleanCaption);
+  if (hashtags.length) capHtml += (capHtml ? " " : "") + hashtags.map(h => `<a href="#" data-link-tag="${h.slice(1)}">${esc(h)}</a>`).join(" ");
+  $("tt-caption").innerHTML = capHtml;
+  $("tt-caption").querySelectorAll("[data-link-tag]").forEach(el => el.onclick = (e) => {
+    e.preventDefault(); openHashtag(el.dataset.linkTag);
+  });
+  // Sound
+  $("tt-sound-wrap").innerHTML = p.sound_name
+    ? `<div class="tt-sound"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg><span>${esc(p.sound_name.slice(0, 40))}</span></div>`
+    : "";
+  // Like / comment / save / repost
+  $("tt-like-act").dataset.tlike = p.id;
+  $("tt-like-icon").textContent = p.liked ? "❤️" : "🤍";
+  $("tt-like-count").textContent = p.likes_count || 0;
+  $("tt-like-act").classList.toggle("liked", !!p.liked);
+  $("tt-comment-act").dataset.tcomment = p.id;
+  $("tt-comment-count").textContent = p.comments_count || 0;
+  $("tt-save-act").dataset.tsave = p.id;
+  $("tt-save-icon").textContent = p.saved ? "🔖" : "📑";
+  $("tt-save-count").textContent = p.likes_count || 0;
+  $("tt-repost-act").dataset.trepost = p.id;
+  $("tt-repost-act").style.color = p.reposted ? "var(--accent-2)" : "";
+  // Shop badge
+  if (p.linked_listing) {
+    $("tt-shop").classList.add("show");
+    $("tt-shop-text").textContent = `${p.linked_listing.title.slice(0, 25)} — ${p.linked_listing.currency} ${Number(p.linked_listing.price).toFixed(2)}`;
+    $("tt-shop").onclick = () => openListing(p.linked_listing.id);
+  } else {
+    $("tt-shop").classList.remove("show");
+  }
+  // Search bar text
+  $("tt-search-text").textContent = "Search · " + (caption.slice(0, 40) || "TouRryl");
+  // Reset progress
+  $("tt-progress-bar").style.width = "0%";
+}
+
+// ============================================================
+// PROFILE
+// ============================================================
+async function openProfile(uid) {
+  viewingUserId = uid; show("screen-profile");
+  $("profile-content").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const [user, posts, reviewData] = await Promise.all([
+      api(`/users/${uid}`),
+      api(`/users/${uid}/posts`),
+      api(`/users/${uid}/reviews`).catch(() => ({ reviews: [], average: 0, count: 0 }))
+    ]);
+    const init = (user.username || "?")[0].toUpperCase();
+    const av = user.avatar_url ? `<img src="${API}${user.avatar_url}">` : init;
+    const ratingLine = reviewData.count > 0
+      ? `<div class="profile-rating">${"★".repeat(Math.round(reviewData.average))}${"☆".repeat(5-Math.round(reviewData.average))} ${reviewData.average} (${reviewData.count})</div>`
+      : "";
+    const actions = user.is_me
+      ? `<button id="btn-edit-profile" class="ghost">Edit profile</button>`
+      : `<button id="btn-follow-profile">${user.following ? "Following ✓" : "+ Follow"}</button>
+         <button id="btn-message-profile">Message</button>
+         <button id="btn-block-profile" class="ghost" style="max-width:50px">⋯</button>`;
+    const postsHtml = posts.length ? posts.map(renderPost).join("") : '<div class="empty">No posts yet.</div>';
+    const reviewsHtml = reviewData.reviews.length
+      ? reviewData.reviews.map(r => `<div class="review-card">
+          <div style="display:flex;justify-content:space-between">
+            <b>@${esc(r.username)}</b><span style="color:#FFC800">${"★".repeat(r.rating)}</span>
+          </div>
+          ${r.comment ? `<div style="color:var(--muted);margin-top:6px">${esc(r.comment)}</div>` : ""}
+        </div>`).join("")
+      : '<div class="empty" style="padding:10px">No reviews yet.</div>';
+    $("profile-content").innerHTML = `
+      <div class="profile-head">
+        <div class="profile-avatar">${av}</div>
+        <div class="profile-username">@${esc(user.username)}</div>
+        ${ratingLine}
+        ${user.bio ? `<div class="profile-bio">${esc(user.bio)}</div>` : ""}
+        <div class="profile-stats">
+          <div><b>${user.followers_count}</b> followers</div>
+          <div><b>${user.following_count}</b> following</div>
+        </div>
+        <div class="profile-actions">${actions}</div>
+      </div>
+      <div class="grid-label">Posts</div>
+      <div style="padding:0 16px 16px">${postsHtml}</div>
+      <div class="grid-label">Reviews as seller</div>
+      <div style="padding:0 14px">${reviewsHtml}</div>`;
+    bindPostEvents();
+    const eb = $("btn-edit-profile"); if (eb) eb.onclick = () => openEditProfile(user);
+    const fb = $("btn-follow-profile");
+    if (fb) fb.onclick = async () => {
+      try { const r = await api(`/users/${uid}/follow`, { method: "POST" });
+            fb.textContent = r.following ? "Following ✓" : "+ Follow"; } catch {}
+    };
+    const mb = $("btn-message-profile");
+    if (mb) mb.onclick = async () => {
+      try { const c = await api(`/conversations/with/${uid}`, { method: "POST" });
+            openChat(c.id, user.username, uid); } catch (e) { alert(e.message); }
+    };
+    const bb = $("btn-block-profile");
+    if (bb) bb.onclick = async () => {
+      const b = await api(`/users/${uid}/blocked`);
+      if (!confirm((b.blocked ? "Unblock" : "Block") + " this user?")) return;
+      try { await api(`/users/${uid}/block`, { method: "POST" }); show("screen-feed"); loadFeed(); } catch (e) { alert(e.message); }
+    };
+  } catch (e) { $("profile-content").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-profile-back").onclick = () => show("screen-feed");
+async function openEditProfile(user) {
+  show("screen-edit");
+  $("avatar-preview-wrap").innerHTML = ""; $("avatar-input").value = "";
+  $("edit-error").textContent = ""; pendingAvatarFile = null;
+  $("edit-bio").value = user.bio || "";
+  try {
+    const d = await api("/me/details");
+    $("edit-age").value = d.age || ""; $("edit-country").value = d.country || ""; $("edit-city").value = d.city || "";
+  } catch {}
+}
+$("btn-edit-cancel").onclick = () => show("screen-profile");
+$("avatar-input").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  pendingAvatarFile = f;
+  $("avatar-preview-wrap").innerHTML = `<img class="upload-preview" src="${URL.createObjectURL(f)}">`;
+};
+$("btn-save-profile").onclick = async () => {
+  $("btn-save-profile").disabled = true;
+  try {
+    const ageRaw = $("edit-age").value.trim();
+    const age = ageRaw ? parseInt(ageRaw, 10) : null;
+    if (age !== null && (isNaN(age) || age < 13 || age > 120)) throw new Error("Age 13-120");
+    await api("/me", { method: "PATCH", body: { bio: $("edit-bio").value.trim() } });
+    await api("/me/details", { method: "PATCH", body: { age,
+      country: $("edit-country").value.trim(), city: $("edit-city").value.trim() } });
+    if (pendingAvatarFile) {
+      const blob = await compressImage(pendingAvatarFile, 512, 0.85);
+      const fd = new FormData(); fd.append("file", blob, "avatar.jpg");
+      await api("/me/avatar", { method: "POST", body: fd });
+    }
+    const me = await api("/me"); openProfile(me.id);
+  } catch (e) { $("edit-error").textContent = e.message; }
+  finally { $("btn-save-profile").textContent = "Save"; $("btn-save-profile").disabled = false; }
+};
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+$("btn-notifications").onclick = async () => {
+  show("screen-notifications");
+  $("notif-list").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const list = await api("/notifications");
+    if (!list.length) $("notif-list").innerHTML = '<div class="empty">No notifications yet.</div>';
+    else {
+      $("notif-list").innerHTML = list.map(n => {
+        const init = (n.actor_username || "?")[0].toUpperCase();
+        const av = n.actor_avatar ? `<img src="${API}${n.actor_avatar}">` : init;
+        const textMap = {
+          like:"liked your post", comment:"commented", reply:"replied",
+          follow:"followed you", message:"sent a message",
+          purchase:"bought your listing", listing_comment:"asked about your listing",
+          offer_made:"made an offer", offer_accepted:"accepted your offer",
+          offer_declined:"declined your offer", offer_countered:"countered your offer",
+          review_received:"left you a review", repost:"reposted your post",
+          comment_like:"liked your comment"
+        };
+        const t = textMap[n.type] || "";
+        return `<div class="notif ${n.read ? '' : 'unread'}"
+          data-notif-actor="${n.actor_id}" data-notif-type="${n.type}">
+          <div class="avatar">${av}</div>
+          <div class="notif-body"><b>@${esc(n.actor_username)}</b> ${t}
+          <span class="muted">${new Date(n.created_at + "Z").toLocaleString()}</span></div>
+        </div>`;
+      }).join("");
+      document.querySelectorAll(".notif[data-notif-type]").forEach(el => {
+        el.onclick = () => {
+          const t = el.dataset.notifType, actor = el.dataset.notifActor;
+          if (t === "follow" || t === "review_received") openProfile(actor);
+          else if (t === "message") { show("screen-messages"); loadConversations(); }
+          else if (t.startsWith("offer_") || t === "purchase" || t === "listing_comment") openOrders();
+          else { show("screen-feed"); loadFeed(); }
+        };
+      });
+    }
+    await api("/notifications/read", { method: "POST" });
+    refreshBadges();
+  } catch (e) { $("notif-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+};
+$("btn-notif-back").onclick = () => show("screen-feed");
+
+// ============================================================
+// MESSAGES
+// ============================================================
+async function loadConversations() {
+  $("chat-list").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const list = await api("/conversations");
+    if (!list.length) { $("chat-list").innerHTML = '<div class="empty">No conversations yet.</div>'; return; }
+    $("chat-list").innerHTML = list.map(c => {
+      const init = (c.other_username || "?")[0].toUpperCase();
+      const av = c.other_avatar ? `<img src="${API}${c.other_avatar}">` : init;
+      const unread = c.unread > 0 ? `<div class="chat-unread">${c.unread}</div>` : "";
+      return `<div class="chat-item" data-cid="${c.id}" data-name="${esc(c.other_username)}" data-other-id="${c.other_id}">
+        <div class="avatar">${av}</div>
+        <div class="chat-meta"><div class="chat-name">@${esc(c.other_username)}</div>
+        <div class="chat-last">${esc(c.last_body || "")}</div></div>
+        <div class="chat-side"><div class="chat-time">${c.last_message_at ? new Date(c.last_message_at + "Z").toLocaleDateString() : ""}</div>${unread}</div>
+      </div>`;
+    }).join("");
+    document.querySelectorAll(".chat-item").forEach(el => {
+      el.onclick = () => openChat(el.dataset.cid, el.dataset.name, el.dataset.otherId);
+    });
+  } catch (e) { $("chat-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-msg-back").onclick = () => show("screen-feed");
+async function openChat(cid, name, otherId) {
+  chatId = cid; chatOtherId = otherId || null; lastMsgId = 0;
+  $("chat-title").textContent = name ? "@" + name : "Chat";
+  $("chat-messages").innerHTML = '<div class="loading">Loading...</div>';
+  show("screen-chat"); await pollMessages();
+}
+async function pollMessages() {
+  if (!chatId) return;
+  try {
+    const msgs = await api(`/conversations/${chatId}/messages?since=${lastMsgId}`);
+    const box = $("chat-messages");
+    if (lastMsgId === 0) box.innerHTML = "";
+    msgs.forEach(m => {
+      const mine = m.sender_id === myUserId;
+      const div = document.createElement("div");
+      div.className = "msg " + (mine ? "me" : "them");
+      div.innerHTML = `${esc(m.body)}<div class="msg-time">${new Date(m.created_at + "Z").toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>`;
+      box.appendChild(div); lastMsgId = Math.max(lastMsgId, m.id);
+    });
+    if (msgs.length) box.scrollTop = box.scrollHeight;
+  } catch {}
+}
+$("chat-send").onclick = async () => {
+  const body = $("chat-input").value.trim(); if (!body) return;
+  $("chat-input").value = "";
+  try { await api(`/conversations/${chatId}/messages`, { method: "POST", body: { body } }); await pollMessages(); }
+  catch (e) { alert(e.message); }
+};
+$("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") $("chat-send").click(); });
+$("btn-chat-back").onclick = () => { chatId = null; chatOtherId = null; show("screen-messages"); loadConversations(); };
+
+// ============================================================
+// BADGES
+// ============================================================
+async function refreshBadges() {
+  try {
+    const b = await api("/badges");
+    const set = (id, n) => { const el = $(id); if (!el) return;
+      if (n > 0) { el.textContent = n; el.style.display = "inline-block"; } else el.style.display = "none"; };
+    set("notif-badge", b.notifications); set("drawer-notif-badge", b.notifications);
+    set("drawer-msg-badge", b.messages);
+  } catch {}
+}
+setInterval(() => { if (token) refreshBadges(); }, 20000);
+
+// ============================================================
+// SEARCH
+// ============================================================
+$("btn-search").onclick = () => { show("screen-search"); $("search-input").focus(); };
+$("inline-search").onclick = () => { show("screen-search"); $("search-input").focus(); };
+$("btn-search-back").onclick = () => show("screen-feed");
+let searchTimer = null;
+$("search-input").addEventListener("input", e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (!q) { $("search-results").innerHTML = ""; return; }
+  searchTimer = setTimeout(() => runSearch(q), 400);
+});
+async function runSearch(q) {
+  const box = $("search-results");
+  box.innerHTML = '<div class="loading">Searching...</div>';
+  try {
+    const r = await api(`/search?q=${encodeURIComponent(q)}`);
+    let html = "";
+    if (r.users.length) {
+      html += '<div class="search-section-label">People</div>';
+      html += r.users.map(u => {
+        const init = (u.username || "?")[0].toUpperCase();
+        const av = u.avatar_url ? `<img src="${API}${u.avatar_url}">` : init;
+        return `<div class="search-user" data-uid="${u.id}"><div class="avatar">${av}</div><div>@${esc(u.username)}</div></div>`;
+      }).join("");
+    }
+    if (r.listings && r.listings.length) {
+      html += '<div class="search-section-label">Listings</div><div class="mk-grid" style="padding:4px 14px 12px">' +
+        r.listings.map(renderListingCard).join("") + '</div>';
+    }
+    if (r.hashtags.length) {
+      html += '<div class="search-section-label">Hashtags</div><div style="padding:0 16px 10px">';
+      html += r.hashtags.map(h => `<span class="tag-chip" data-tag="${esc(h.tag)}">#${esc(h.tag)}</span>`).join("");
+      html += '</div>';
+    }
+    if (r.posts.length) {
+      html += '<div class="search-section-label">Posts</div><div style="padding:0 16px 20px">' +
+              r.posts.map(renderPost).join("") + '</div>';
+    }
+    if (!html) html = '<div class="empty">No results.</div>';
+    box.innerHTML = html;
+    box.querySelectorAll("[data-uid]").forEach(el => el.onclick = () => openProfile(el.dataset.uid));
+    box.querySelectorAll("[data-tag]").forEach(el => el.onclick = () => openHashtag(el.dataset.tag));
+    box.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
+    bindPostEvents();
+  } catch (e) { box.innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+
+// ============================================================
+// HASHTAG / TRENDING / SAVED
+// ============================================================
+async function openHashtag(tag) {
+  tag = tag.replace(/^#/, "").toLowerCase();
+  $("hashtag-title").textContent = "#" + tag;
+  $("hashtag-feed").innerHTML = '<div class="loading">Loading...</div>';
+  show("screen-hashtag");
+  try {
+    const posts = await api(`/hashtags/${encodeURIComponent(tag)}`);
+    $("hashtag-feed").innerHTML = posts.length ? posts.map(renderPost).join("")
+      : '<div class="empty">No posts with #' + esc(tag) + ' yet.</div>';
+    bindPostEvents();
+  } catch (e) { $("hashtag-feed").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-hashtag-back").onclick = () => show("screen-feed");
+async function openTrending() {
+  show("screen-trending");
+  $("trend-grid").innerHTML = '<div class="loading" style="grid-column:1/-1">Loading...</div>';
+  try {
+    const list = await api("/hashtags/trending");
+    if (!list.length) { $("trend-grid").innerHTML = '<div class="empty" style="grid-column:1/-1">No hashtags yet.</div>'; return; }
+    $("trend-grid").innerHTML = list.map(h => `<div class="trend-card" data-tag="${esc(h.tag)}">
+      <div class="tag">#${esc(h.tag)}</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:4px">${h.post_count} posts</div>
+      ${h.recent > 0 ? `<div style="color:var(--accent-2);font-size:11px;margin-top:6px;font-weight:600">🔥 ${h.recent} in 24h</div>` : ""}
+    </div>`).join("");
+    $("trend-grid").querySelectorAll("[data-tag]").forEach(el => el.onclick = () => openHashtag(el.dataset.tag));
+  } catch (e) { $("trend-grid").innerHTML = '<div class="empty" style="grid-column:1/-1;color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-trending-back").onclick = () => show("screen-feed");
+async function openSaved() { show("screen-saved"); await loadSaved(); }
+async function loadSaved() {
+  const box = $("saved-content"); box.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const data = await api("/saves");
+    if (savedTab === "posts") {
+      box.innerHTML = data.posts.length ? data.posts.map(renderPost).join("")
+        : '<div class="empty">No saved posts yet.</div>';
+      bindPostEvents();
+    } else {
+      box.innerHTML = data.listings.length
+        ? '<div class="mk-grid" style="padding:0">' + data.listings.map(renderListingCard).join("") + '</div>'
+        : '<div class="empty">No saved listings yet.</div>';
+      box.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
+    }
+  } catch (e) { box.innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+document.querySelectorAll("[data-savedtab]").forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll("[data-savedtab]").forEach(x => x.classList.remove("active"));
+    t.classList.add("active"); savedTab = t.dataset.savedtab; loadSaved();
+  };
+});
+$("btn-saved-back").onclick = () => show("screen-feed");
+
+// ============================================================
+// MARKETPLACE
+// ============================================================
+const MK_CATS = ["all","electronics","clothing","vehicles","home","services","food","beauty","property","jobs","other"];
+function renderMkCats() {
+  $("mk-cats").innerHTML = MK_CATS.map(c =>
+    `<div class="mk-cat ${c === mkCurrentCat ? 'active' : ''}" data-cat="${c}">${c === 'all' ? 'All' : c[0].toUpperCase() + c.slice(1)}</div>`).join("");
+  $("mk-cats").querySelectorAll(".mk-cat").forEach(el => {
+    el.onclick = () => { mkCurrentCat = el.dataset.cat; renderMkCats(); loadMarketplace(); };
+  });
+  const filters = [
+    { label: "All", active: !mkFilters.min_price && !mkFilters.max_price && !mkFilters.condition,
+      apply: () => { mkFilters = { min_price: null, max_price: null, condition: null }; } },
+    { label: "Under $20", active: mkFilters.max_price === 20, apply: () => { mkFilters.max_price = 20; mkFilters.min_price = null; mkFilters.condition = null; } },
+    { label: "$20–100", active: mkFilters.min_price === 20 && mkFilters.max_price === 100,
+      apply: () => { mkFilters.min_price = 20; mkFilters.max_price = 100; mkFilters.condition = null; } },
+    { label: "$100+", active: mkFilters.min_price === 100, apply: () => { mkFilters.min_price = 100; mkFilters.max_price = null; mkFilters.condition = null; } },
+    { label: "New", active: mkFilters.condition === "new", apply: () => { mkFilters.condition = "new"; mkFilters.min_price = null; mkFilters.max_price = null; } },
+    { label: "Used", active: mkFilters.condition === "used", apply: () => { mkFilters.condition = "used"; mkFilters.min_price = null; mkFilters.max_price = null; } },
+  ];
+  $("mk-filters").innerHTML = filters.map((f, i) =>
+    `<div class="mk-filter ${f.active ? 'active' : ''}" data-fi="${i}">${f.label}</div>`).join("");
+  $("mk-filters").querySelectorAll(".mk-filter").forEach(el => {
+    el.onclick = () => {
+      filters[parseInt(el.dataset.fi)].apply();
+      renderMkCats();
+      loadMarketplace();
+    };
+  });
+}
+async function loadMarketplace() {
+  renderMkCats();
+  const grid = $("mk-grid");
+  grid.innerHTML = '<div class="loading" style="grid-column:1/-1">Loading...</div>';
+  try {
+    const params = new URLSearchParams();
+    if (mkCurrentCat !== "all") params.set("category", mkCurrentCat);
+    if (mkFilters.min_price != null) params.set("min_price", mkFilters.min_price);
+    if (mkFilters.max_price != null) params.set("max_price", mkFilters.max_price);
+    if (mkFilters.condition) params.set("condition", mkFilters.condition);
+    const list = await api("/listings?" + params.toString());
+    if (!list.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Nothing here yet.</div>'; return; }
+    grid.innerHTML = list.map(renderListingCard).join("");
+    grid.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
+  } catch (e) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1;color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+function renderListingCard(l) {
+  const thumb = l.media_url
+    ? (l.media_type === "video"
+       ? `<video class="thumb" src="${API}${l.media_url}" muted preload="metadata"></video>`
+       : `<img class="thumb" src="${API}${l.media_url}" loading="lazy">`)
+    : `<div class="thumb" style="display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:32px">🛒</div>`;
+  const cond = l.condition ? `<div class="cond-badge">${esc(l.condition)}</div>` : "";
+  return `<div class="mk-card" data-lid="${l.id}">${cond}${thumb}
+    <div class="body"><div class="title">${esc(l.title)}</div>
+    <div class="price">${esc(l.currency)} ${Number(l.price).toFixed(2)}</div>
+    <div class="meta">@${esc(l.username)}${l.location ? " • " + esc(l.location) : ""}</div></div></div>`;
+}
+
+// ============================================================
+// LISTING DETAIL
+// ============================================================
+async function openListing(lid) {
+  activeListingId = lid;
+  $("listing-body").innerHTML = '<div class="loading">Loading...</div>';
+  $("listing-title").textContent = "Listing"; show("screen-listing");
+  try {
+    const l = await api(`/listings/${lid}`);
+    $("listing-title").textContent = l.title;
+    const imgs = l.images && l.images.length ? l.images : (l.media_url ? [{media_url: l.media_url, media_type: l.media_type}] : []);
+    const galleryHtml = imgs.length ? `<div class="mk-gallery">${imgs.map(i =>
+      i.media_type === "video"
+        ? `<video class="gi" src="${API}${i.media_url}" controls playsinline></video>`
+        : `<img class="gi" src="${API}${i.media_url}">`
+    ).join("")}</div>` : "";
+    const isMine = String(l.seller_id) === String(myUserId);
+    const ratingLine = l.seller_review_count > 0
+      ? `<div style="color:#FFC800;font-size:13px">${"★".repeat(Math.round(l.seller_rating))} ${l.seller_rating} (${l.seller_review_count})</div>`
+      : "";
+    const otherListings = l.other_listings && l.other_listings.length
+      ? `<div class="grid-label" style="padding:20px 0 8px">More from @${esc(l.username)}</div>
+         <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">
+         ${l.other_listings.map(o => `<div class="mk-card" style="min-width:140px;flex-shrink:0" data-lid="${o.id}">
+           ${o.media_url ? `<img class="thumb" src="${API}${o.media_url}">` : `<div class="thumb"></div>`}
+           <div class="body"><div class="title">${esc(o.title)}</div>
+           <div class="price">${esc(o.currency)} ${Number(o.price).toFixed(2)}</div></div>
+         </div>`).join("")}</div>` : "";
+    const relatedListings = l.related && l.related.length
+      ? `<div class="grid-label" style="padding:20px 0 8px">Similar items</div>
+         <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:8px">
+         ${l.related.map(o => `<div class="mk-card" style="min-width:140px;flex-shrink:0" data-lid="${o.id}">
+           ${o.media_url ? `<img class="thumb" src="${API}${o.media_url}">` : `<div class="thumb"></div>`}
+           <div class="body"><div class="title">${esc(o.title)}</div>
+           <div class="price">${esc(o.currency)} ${Number(o.price).toFixed(2)}</div></div>
+         </div>`).join("")}</div>` : "";
+
+    const actionsHtml = isMine
+      ? `<button class="btn-danger" id="btn-listing-sold">Mark sold</button>
+         <button class="btn-ghost" id="btn-listing-offers">Offers</button>
+         <button class="btn-ghost" id="btn-listing-edit">Edit</button>
+         <button class="btn-ghost" id="btn-listing-delete">Delete</button>`
+      : `<button id="btn-listing-msg">Message</button>
+         ${l.offers_enabled ? `<button id="btn-listing-offer" style="background:var(--accent-2);color:#000">Make offer</button>` : ""}
+         ${l.stripe_enabled && l.status === "active" ? `<button id="btn-listing-buy">Buy now</button>` : ""}
+         <button class="btn-ghost" id="btn-listing-save">${l.saved ? '🔖 Saved' : '🔖 Save'}</button>`;
+
+    $("listing-body").innerHTML = `
+      ${galleryHtml}
+      <div style="font-size:24px;font-weight:800;color:var(--accent-2);margin:10px 0">${esc(l.currency)} ${Number(l.price).toFixed(2)}</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:6px">${esc(l.title)}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div class="avatar" data-user="${l.seller_id}" style="width:36px;height:36px">${l.avatar_url ? `<img src="${API}${l.avatar_url}">` : (l.username||"?")[0].toUpperCase()}</div>
+        <div>
+          <div style="font-weight:600">@${esc(l.username)}</div>
+          ${ratingLine}
+        </div>
+      </div>
+      ${l.condition ? `<div style="margin-bottom:8px"><span class="pill ${l.condition}">${esc(l.condition)}</span></div>` : ""}
+      <div style="color:var(--muted);font-size:12px;margin-bottom:14px">${l.location ? '📍 ' + esc(l.location) + ' • ' : ''}${l.views_count} views</div>
+      ${l.description ? `<div style="font-size:15px;line-height:1.5;margin-bottom:18px;white-space:pre-wrap">${esc(l.description)}</div>` : ""}
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">${actionsHtml}</div>
+      ${otherListings}
+      ${relatedListings}`;
+
+    document.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
+    document.querySelectorAll("[data-user]").forEach(el => el.onclick = () => openProfile(el.dataset.user));
+
+    const mb = $("btn-listing-msg");
+    if (mb) mb.onclick = async () => {
+      const c = await api(`/conversations/with/${l.seller_id}`, { method: "POST" });
+      openChat(c.id, l.username, l.seller_id);
+    };
+    const soldB = $("btn-listing-sold");
+    if (soldB) soldB.onclick = async () => {
+      if (!confirm("Mark as sold?")) return;
+      await api(`/listings/${lid}/sold`, { method: "POST" }); openMyListings();
+    };
+    const offB = $("btn-listing-offers");
+    if (offB) offB.onclick = () => openOffersReceived(lid, l.title);
+    const delB = $("btn-listing-delete");
+    if (delB) delB.onclick = async () => {
+      if (!confirm("Delete?")) return;
+      await api(`/listings/${lid}`, { method: "DELETE" }); show("screen-feed"); loadMarketplace();
+    };
+    const editB = $("btn-listing-edit"); if (editB) editB.onclick = () => openEditListing(l);
+    const buyB = $("btn-listing-buy");
+    if (buyB) buyB.onclick = async () => {
+      buyB.disabled = true; buyB.textContent = "Opening...";
+      try { const r = await api(`/listings/${lid}/checkout`, { method: "POST", body: {} });
+            window.location.href = r.checkout_url; }
+      catch (e) { alert(e.message); buyB.disabled = false; buyB.textContent = "Buy now"; }
+    };
+    const offerB = $("btn-listing-offer");
+    if (offerB) offerB.onclick = () => openOfferSheet(lid, l.title, l.price, l.currency);
+    const saveB = $("btn-listing-save");
+    if (saveB) saveB.onclick = async () => {
+      const r = await api("/saves/toggle", { method: "POST", body: { item_type: "listing", item_id: l.id } });
+      saveB.textContent = r.saved ? "🔖 Saved" : "🔖 Save";
+    };
+  } catch (e) { $("listing-body").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-listing-back").onclick = () => show("screen-feed");
+
+function openOfferSheet(lid, title, listPrice, currency) {
+  $("sheet-title").textContent = "Make an offer";
+  $("sheet-body").innerHTML = `
+    <div style="color:var(--muted);font-size:13px;margin-bottom:14px">
+      <b style="color:var(--text)">${esc(title)}</b><br>
+      Listed at ${esc(currency)} ${Number(listPrice).toFixed(2)}
+    </div>
+    <input id="offer-amount" placeholder="Your offer (${currency})" type="number" inputmode="decimal" step="0.01">
+    <textarea id="offer-message" placeholder="Message (optional)"></textarea>
+    <div class="error" id="offer-error"></div>
+    <button id="btn-offer-send">Send offer</button>`;
+  $("sheet-input-wrap").style.display = "none";
+  openSheet();
+  $("btn-offer-send").onclick = async () => {
+    const amt = parseFloat($("offer-amount").value);
+    if (isNaN(amt) || amt <= 0) return $("offer-error").textContent = "Enter a valid amount";
+    $("btn-offer-send").disabled = true;
+    try {
+      await api(`/listings/${lid}/offers`, { method: "POST",
+        body: { amount: amt, message: $("offer-message").value.trim() } });
+      closeSheet();
+      alert("Offer sent!");
+    } catch (e) { $("offer-error").textContent = e.message; $("btn-offer-send").disabled = false; }
+  };
+}
+
+// ============================================================
+// MY OFFERS
+// ============================================================
+async function openMyOffers() {
+  show("screen-offers");
+  $("offers-list").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const list = await api("/offers/mine");
+    if (!list.length) { $("offers-list").innerHTML = '<div class="empty">No offers yet.</div>'; return; }
+    $("offers-list").innerHTML = list.map(o => {
+      const thumb = o.media_url ? `<img src="${API}${o.media_url}" style="width:48px;height:48px;border-radius:8px;object-fit:cover">` : "";
+      const statusColor = { pending: "#FFC800", accepted: "var(--accent)", declined: "var(--danger)", countered: "var(--accent-2)" }[o.status] || "var(--muted)";
+      return `<div class="offer-card">
+        <div style="display:flex;gap:10px;align-items:center">
+          ${thumb}
+          <div style="flex:1">
+            <div style="font-weight:600">${esc(o.listing_title)}</div>
+            <div style="color:var(--muted);font-size:11px;margin-top:2px">From @${esc(o.seller_username)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="offer-amount">$${Number(o.amount).toFixed(2)}</div>
+            <div style="color:${statusColor};font-size:11px;font-weight:700;text-transform:uppercase;margin-top:2px">${o.status}</div>
+          </div>
+        </div>
+        ${o.counter_amount ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">Seller counter: <b style="color:var(--accent-2)">$${Number(o.counter_amount).toFixed(2)}</b></div>` : ""}
+        ${o.message ? `<div style="margin-top:8px;color:var(--muted);font-size:12px">"${esc(o.message)}"</div>` : ""}
+        <div class="offer-actions">
+          <button class="btn-ghost" data-view-listing="${o.listing_id}">View listing</button>
+        </div>
+      </div>`;
+    }).join("");
+    $("offers-list").querySelectorAll("[data-view-listing]").forEach(el => el.onclick = () => openListing(el.dataset.viewListing));
+  } catch (e) { $("offers-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-offers-back").onclick = () => show("screen-feed");
+
+async function openOffersReceived(lid, title) {
+  $("offers-received-title").textContent = "Offers: " + (title || "").slice(0, 20);
+  $("offers-received-list").innerHTML = '<div class="loading">Loading...</div>';
+  show("screen-offers-received");
+  try {
+    const list = await api(`/listings/${lid}/offers`);
+    if (!list.length) { $("offers-received-list").innerHTML = '<div class="empty">No offers yet.</div>'; return; }
+    $("offers-received-list").innerHTML = list.map(o => {
+      const av = o.avatar_url ? `<img src="${API}${o.avatar_url}">` : (o.username||"?")[0].toUpperCase();
+      const statusColor = { pending: "#FFC800", accepted: "var(--accent)", declined: "var(--danger)", countered: "var(--accent-2)" }[o.status] || "var(--muted)";
+      return `<div class="offer-card">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="avatar" style="width:44px;height:44px">${av}</div>
+          <div style="flex:1">
+            <b>@${esc(o.username)}</b>
+            <div class="offer-amount">$${Number(o.amount).toFixed(2)}</div>
+            <div style="color:${statusColor};font-size:11px;font-weight:700;text-transform:uppercase">${o.status}</div>
+          </div>
+        </div>
+        ${o.message ? `<div style="margin-top:8px;color:var(--muted);font-size:12px">"${esc(o.message)}"</div>` : ""}
+        ${o.status === "pending" || o.status === "countered"
+          ? `<div class="offer-actions">
+               <button data-oaccept="${o.id}" style="background:var(--accent);color:#000">Accept</button>
+               <button class="btn-ghost" data-ocounter="${o.id}">Counter</button>
+               <button class="btn-danger" data-odecline="${o.id}">Decline</button>
+             </div>`
+          : ""}
+      </div>`;
+    }).join("");
+    $("offers-received-list").querySelectorAll("[data-oaccept]").forEach(el => el.onclick = async () => {
+      await api(`/offers/${el.dataset.oaccept}/respond`, { method: "POST", body: { action: "accept" } });
+      openOffersReceived(lid, title);
+    });
+    $("offers-received-list").querySelectorAll("[data-odecline]").forEach(el => el.onclick = async () => {
+      await api(`/offers/${el.dataset.odecline}/respond`, { method: "POST", body: { action: "decline" } });
+      openOffersReceived(lid, title);
+    });
+    $("offers-received-list").querySelectorAll("[data-ocounter]").forEach(el => el.onclick = async () => {
+      const amt = parseFloat(prompt("Counter amount:"));
+      if (isNaN(amt) || amt <= 0) return;
+      await api(`/offers/${el.dataset.ocounter}/respond`, { method: "POST",
+        body: { action: "counter", counter_amount: amt } });
+      openOffersReceived(lid, title);
+    });
+  } catch (e) { $("offers-received-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-offers-received-back").onclick = () => show("screen-my-listings");
+
+// ============================================================
+// CREATE LISTING
+// ============================================================
+function openCreateListing() {
+  editingListingId = null; listingFiles = [];
+  $("cl-title").textContent = "New listing"; $("btn-publish-listing").textContent = "Publish listing";
+  $("listing-thumbs").innerHTML = ""; $("listing-title-in").value = "";
+  $("listing-desc").value = ""; $("listing-price").value = ""; $("listing-location").value = "";
+  $("listing-category").value = "other"; $("listing-condition").value = "used";
+  $("listing-offers").checked = true;
+  $("listing-error").textContent = ""; $("listing-file").value = "";
+  show("screen-create-listing");
+}
+function openEditListing(l) {
+  editingListingId = l.id; listingFiles = [];
+  $("cl-title").textContent = "Edit listing"; $("btn-publish-listing").textContent = "Save changes";
+  $("listing-title-in").value = l.title || ""; $("listing-desc").value = l.description || "";
+  $("listing-price").value = l.price || ""; $("listing-location").value = l.location || "";
+  $("listing-category").value = l.category || "other";
+  $("listing-condition").value = l.condition || "used";
+  $("listing-offers").checked = !!l.offers_enabled;
+  $("listing-thumbs").innerHTML = "";
+  $("listing-error").textContent = ""; $("listing-file").value = "";
+  show("screen-create-listing");
+}
+$("btn-createlist-cancel").onclick = () => { editingListingId = null; show("screen-feed"); };
+$("listing-file").onchange = e => {
+  const files = Array.from(e.target.files);
+  files.forEach(f => {
+    const idx = listingFiles.length;
+    listingFiles.push(f);
+    const url = URL.createObjectURL(f);
+    const div = document.createElement("div");
+    div.className = "t";
+    div.innerHTML = (f.type.startsWith("video") ? `<video src="${url}" muted></video>` : `<img src="${url}" alt="">`) +
+      `<div class="rm" data-rm="${idx}">×</div>`;
+    $("listing-thumbs").appendChild(div);
+  });
+  $("listing-thumbs").querySelectorAll("[data-rm]").forEach(el => {
+    el.onclick = () => {
+      listingFiles.splice(parseInt(el.dataset.rm), 1);
+      el.parentElement.remove();
+    };
+  });
+};
+$("btn-publish-listing").onclick = async () => {
+  const title = $("listing-title-in").value.trim();
+  const price = parseFloat($("listing-price").value);
+  if (!title) return $("listing-error").textContent = "Title required";
+  if (isNaN(price) || price < 0) return $("listing-error").textContent = "Valid price required";
+  const editing = !!editingListingId;
+  $("btn-publish-listing").disabled = true;
+  $("btn-publish-listing").textContent = editing ? "Saving..." : "Publishing...";
+  try {
+    const uploaded = [];
+    for (const f of listingFiles) {
+      let blob = f;
+      if (f.type.startsWith("image")) blob = await compressImage(f, 1280, 0.82);
+      else if (f.type.startsWith("video")) blob = await compressVideo(f, 720, 900_000);
+      const ext = blob.type.includes("webm") ? "webm" : blob.type.startsWith("video") ? "mp4" : "jpg";
+      const fd = new FormData(); fd.append("file", blob, "listing." + ext);
+      const up = await api("/upload", { method: "POST", body: fd });
+      uploaded.push({ media_url: up.url, media_type: up.type });
+    }
+    const body = { title, description: $("listing-desc").value.trim(), price,
+                   category: $("listing-category").value,
+                   location: $("listing-location").value.trim(),
+                   condition: $("listing-condition").value,
+                   offers_enabled: $("listing-offers").checked };
+    let lid;
+    if (editing) {
+      await api(`/listings/${editingListingId}`, { method: "PATCH", body });
+      lid = editingListingId;
+      editingListingId = null;
+    } else {
+      const r = await api("/listings", { method: "POST", body });
+      lid = r.id;
+    }
+    if (uploaded.length) {
+      await api(`/listings/${lid}/images`, { method: "POST", body: { images: uploaded } });
+    }
+    openListing(lid);
+  } catch (e) { $("listing-error").textContent = e.message; }
+  finally { $("btn-publish-listing").textContent = editing ? "Save changes" : "Publish listing";
+            $("btn-publish-listing").disabled = false; }
+};
+
+// ============================================================
+// MY LISTINGS
+// ============================================================
+async function openMyListings() {
+  show("screen-my-listings");
+  $("my-listings-grid").innerHTML = '<div class="loading" style="grid-column:1/-1">Loading...</div>';
+  try {
+    const me = await api("/me");
+    const all = await api(`/listings?seller_id=${me.id}&limit=100`);
+    $("my-listings-grid").innerHTML = all.length ? all.map(renderListingCard).join("")
+      : '<div class="empty" style="grid-column:1/-1">No listings yet.</div>';
+    $("my-listings-grid").querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
+  } catch (e) { $("my-listings-grid").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-mylist-back").onclick = () => show("screen-feed");
+
+// ============================================================
+// ORDERS
+// ============================================================
+async function openOrders() {
+  show("screen-orders"); $("orders-list").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const list = await api("/orders/mine");
+    if (!list.length) { $("orders-list").innerHTML = '<div class="empty">No orders yet.</div>'; return; }
+    $("orders-list").innerHTML = list.map(o => {
+      const isBuyer = String(o.buyer_id) === String(myUserId);
+      const thumb = o.listing_media ? `<img class="thumb" src="${API}${o.listing_media}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">` : "";
+      return `<div class="offer-card">
+        <div style="display:flex;gap:12px;align-items:center">
+          ${thumb}
+          <div style="flex:1">
+            <div style="font-weight:700">${esc(o.listing_title)}</div>
+            <div style="color:var(--muted);font-size:12px;margin-top:2px">${isBuyer ? "From @" + esc(o.seller_username) : "To @" + esc(o.buyer_username)}</div>
+            <div style="color:var(--accent-2);font-weight:700;margin-top:4px">${esc(o.currency)} ${Number(o.amount).toFixed(2)}</div>
+            <div style="margin-top:6px"><span class="pill" style="background:#333">${o.status}</span></div>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) { $("orders-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-orders-back").onclick = () => show("screen-feed");
+
+// ============================================================
+// VERIFY / SETTINGS / ADMIN
+// ============================================================
+async function openVerify() {
+  show("screen-verify"); $("verify-body").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const s = await api("/verify/status");
+    if (!s.required_email && !s.required_phone) {
+      $("verify-body").innerHTML = '<div class="verify-banner">✅ Verification not required.</div>';
+      return;
+    }
+    $("verify-body").innerHTML = `<button id="btn-send-email">Send email code</button>`;
+    $("btn-send-email").onclick = async () => { await api("/verify/request", { method: "POST", body: { kind: "email" } }); alert("Code sent"); };
+  } catch (e) { $("verify-body").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-verify-back").onclick = () => show("screen-feed");
+
+async function openSettings() {
+  show("screen-settings"); $("settings-body").innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const s = await api("/settings");
+    const me = await api("/me");
+    $("settings-body").innerHTML = `
+      <div class="grid-label">Account</div>
+      <div class="settings-row" id="row-edit"><div><div class="label">Edit profile</div></div><div>›</div></div>
+      <div class="grid-label">Data</div>
+      <div class="settings-row"><div><div class="label">Data saver</div></div>
+        <div class="toggle ${s.data_saver ? 'on' : ''}" data-toggle="data_saver"></div></div>
+      <div class="settings-row"><div><div class="label">Autoplay videos</div></div>
+        <div class="toggle ${s.autoplay_video ? 'on' : ''}" data-toggle="autoplay_video"></div></div>
+      <div class="grid-label">Privacy</div>
+      <div class="settings-row" id="row-privacy"><div><div class="label">Privacy policy</div></div><div>›</div></div>
+      <div class="settings-row" id="row-delete"><div><div class="label" style="color:var(--danger)">Delete account</div></div><div>›</div></div>
+      <div class="settings-row"><div><div class="label">Signed in as</div></div><div style="color:var(--muted)">@${esc(me.username)}</div></div>`;
+    $("row-edit").onclick = () => openEditProfile(me);
+    $("row-privacy").onclick = () => window.open(API + "/privacy", "_blank");
+    $("row-delete").onclick = async () => {
+      if (!confirm("Delete your account permanently?")) return;
+      const code = prompt("Type DELETE:");
+      if (code !== "DELETE") return;
+      await api("/me?confirm=DELETE", { method: "DELETE" });
+      localStorage.clear(); location.reload();
+    };
+    $("settings-body").querySelectorAll("[data-toggle]").forEach(el => el.onclick = async () => {
+      el.classList.toggle("on");
+      const key = el.dataset.toggle;
+      const val = el.classList.contains("on");
+      await api("/settings", { method: "PATCH", body: { [key]: val } });
+    });
+  } catch (e) { $("settings-body").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
+}
+$("btn-settings-back").onclick = () => show("screen-feed");
+
+async function openAdmin() {
+  show("screen-admin");
+  try {
+    const s = await api("/admin/stats");
+    $("admin-stats").innerHTML = Object.entries(s).map(([k, v]) =>
+      `<div style="background:var(--surface);padding:14px;border-radius:12px;border:1px solid var(--line)">
+        <div style="font-size:22px;font-weight:800;color:var(--accent-2)">${v}</div>
+        <div style="color:var(--muted);font-size:11px;text-transform:uppercase;margin-top:2px">${k.replace(/_/g," ")}</div>
+      </div>`).join("");
+    loadAdminUsers("");
+  } catch (e) { $("admin-stats").innerHTML = '<div style="color:var(--danger);grid-column:1/-1">' + esc(e.message) + '</div>'; }
+}
+$("btn-admin-back").onclick = () => show("screen-feed");
+async function loadAdminUsers(q) {
+  try {
+    const list = await api("/admin/users" + (q ? "?q=" + encodeURIComponent(q) : ""));
+    $("admin-users").innerHTML = list.map(u => `<div style="background:var(--surface);border:1px solid var(--line);padding:12px 14px;margin:8px 14px;border-radius:10px">
+      <div><b>@${esc(u.username)}</b> ${u.is_admin ? "ADMIN" : ""} ${u.banned ? '<span style="color:var(--danger)">BANNED</span>' : ""}</div>
+      <div style="color:var(--muted);font-size:12px">${esc(u.email)} • ${u.strikes} strikes</div>
+    </div>`).join("");
+  } catch {}
+}
+let adminTimer = null;
+$("admin-user-search").addEventListener("input", e => {
+  clearTimeout(adminTimer);
+  adminTimer = setTimeout(() => loadAdminUsers(e.target.value.trim()), 300);
+});
+
+// ============================================================
+// STORIES
+// ============================================================
+async function loadStories() {
+  const rail = $("stories-rail");
+  try {
+    const groups = await api("/stories");
+    let html = `<div class="story-bubble add" id="story-add">
+      <div class="story-ring"><div class="avatar" style="background:transparent;color:var(--accent-2)">+</div></div>
+      <div class="label">Your story</div></div>`;
+    html += groups.map((g, gi) => {
+      const init = (g.user.username || "?")[0].toUpperCase();
+      const av = g.user.avatar_url ? `<img src="${API}${g.user.avatar_url}">` : init;
+      return `<div class="story-bubble" data-sg="${gi}">
+        <div class="story-ring"><div class="avatar">${av}</div></div>
+        <div class="label">@${esc(g.user.username)}</div></div>`;
+    }).join("");
+    rail.innerHTML = html;
+    $("story-add").onclick = addStory;
+    rail.querySelectorAll("[data-sg]").forEach(el => {
+      el.onclick = () => openStoryViewer(groups[parseInt(el.dataset.sg)], 0);
+    });
+  } catch { rail.innerHTML = ""; }
+}
+async function addStory() {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = "image/*,video/*";
+  input.onchange = async () => {
+    const f = input.files[0]; if (!f) return;
+    try {
+      let blob = f;
+      if (f.type.startsWith("image")) blob = await compressImage(f, 1080, 0.85);
+      else if (f.type.startsWith("video")) blob = await compressVideo(f, 720, 800_000);
+      const fd = new FormData();
+      const ext = blob.type.includes("webm") ? "webm" : blob.type.startsWith("video") ? "mp4" : "jpg";
+      fd.append("file", blob, "story." + ext);
+      const up = await api("/upload", { method: "POST", body: fd });
+      const caption = prompt("Caption (optional)") || "";
+      await api("/stories", { method: "POST", body: { media_url: up.url, media_type: up.type, caption } });
+      loadStories();
+    } catch (e) { alert(e.message); }
+  };
+  input.click();
+}
+let storyCtx = null, storyIdx = 0, storyTimer = null;
+function openStoryViewer(group, idx) {
+  storyCtx = group; storyIdx = idx;
+  let viewer = $("story-viewer");
+  if (!viewer) {
+    viewer = document.createElement("div");
+    viewer.id = "story-viewer";
+    viewer.style.cssText = "position:fixed;inset:0;background:#000;z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center";
+    viewer.innerHTML = `<div id="story-content" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center"></div>
+      <div style="position:absolute;top:14px;right:14px;font-size:26px;color:#fff;cursor:pointer;z-index:2" id="story-close">✕</div>`;
+    document.body.appendChild(viewer);
+    $("story-close").onclick = closeStoryViewer;
+  }
+  viewer.style.display = "flex";
+  renderStory();
+}
+function renderStory() {
+  clearTimeout(storyTimer);
+  const s = storyCtx.stories[storyIdx];
+  const url = API + s.media_url;
+  $("story-content").innerHTML = s.media_type === "video"
+    ? `<video src="${url}" autoplay playsinline style="max-width:100%;max-height:100%"></video>`
+    : `<img src="${url}" style="max-width:100%;max-height:100%">`;
+  api(`/stories/${s.id}/view`, { method: "POST" }).catch(() => {});
+  storyTimer = setTimeout(storyNext, 5000);
+}
+function storyNext() {
+  if (!storyCtx) return;
+  if (storyIdx < storyCtx.stories.length - 1) { storyIdx++; renderStory(); }
+  else closeStoryViewer();
+}
+function closeStoryViewer() {
+  clearTimeout(storyTimer);
+  const v = $("story-viewer");
+  if (v) v.style.display = "none";
+  storyCtx = null;
+}
+
+// ============================================================
+// BOOT
+// ============================================================
+const urlParams = new URLSearchParams(location.search);
+if (urlParams.get("paid") === "1") { setTimeout(() => alert("Payment successful!"), 800); history.replaceState({}, "", "tourryl.html"); }
+else if (urlParams.get("cancelled") === "1") { setTimeout(() => alert("Checkout cancelled."), 800); history.replaceState({}, "", "tourryl.html"); }
+
+function enterApp() {
+  show("screen-feed");
+  api("/me").then(me => { myUserId = me.id; }).catch(() => {});
+  loadFeed();
+  loadStories();
+  refreshBadges();
+  setOfflineBanner(!navigator.onLine);
+  hideSplash();
+}
+if (token) {
+  api("/me").then(() => enterApp()).catch(() => {
+    token = null; localStorage.removeItem("tourryl_token");
+    show("screen-auth"); hideSplash();
+  });
+} else { show("screen-auth"); hideSplash(); }
+</script>
+</body>
+</html>
