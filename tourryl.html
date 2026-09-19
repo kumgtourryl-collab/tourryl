@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#000000">
 <link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>TouRryl — KUMG</title>
 <style>
 :root{--bg:#000;--surface:#0A0F0D;--primary:#0B3D2E;--accent:#00A86B;--accent-2:#00E58A;--text:#fff;--muted:#9CA3AF;--danger:#FF4D4D;--line:#141a18}
@@ -30,23 +31,17 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .splash-name span{color:var(--accent-2)}
 .splash-tag{font-size:11px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;animation:fadeUp .8s ease .6s both}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-
-/* Topbar */
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface);position:sticky;top:0;z-index:30;border-bottom:1px solid var(--line)}
 .topbar .brand{font-weight:800;font-size:20px;letter-spacing:-.3px}
 .topbar .brand span{color:var(--accent-2)}
 .topbar .action{color:var(--muted);font-size:13px;cursor:pointer;padding:6px 10px}
 .topbar .icon-btn{position:relative;color:var(--muted);cursor:pointer;padding:6px 10px;display:flex;align-items:center}
 .badge{position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border-radius:10px;font-size:10px;font-weight:700;padding:1px 6px;min-width:16px;text-align:center;line-height:14px}
-
-/* Top nav — 4 tabs now */
 .top-nav{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:53px;z-index:29}
 .top-nav .nav-tab{flex:1;padding:10px 4px 9px;text-align:center;color:var(--muted);font-size:11px;cursor:pointer;border-bottom:3px solid transparent;display:flex;flex-direction:column;align-items:center;gap:3px;transition:all .15s;background:none;border-radius:0;font-weight:600}
 .top-nav .nav-tab .ic{width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:currentColor}
 .top-nav .nav-tab .ic svg{width:100%;height:100%;display:block}
 .top-nav .nav-tab.active{color:var(--accent-2);border-bottom-color:var(--accent-2)}
-
-/* Drawer */
 .drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;display:none}
 .drawer-bg.open{display:block}
 .drawer{position:fixed;top:0;left:0;bottom:0;width:82%;max-width:320px;background:var(--surface);z-index:91;transform:translateX(-100%);transition:transform .25s ease;display:flex;flex-direction:column;border-right:1px solid var(--line)}
@@ -63,15 +58,11 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .drawer-item:active .ic{color:var(--accent-2)}
 .drawer-item .badge{position:static;margin-left:auto}
 .drawer-foot{padding:12px 18px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}
-
-/* Tabs inside screens */
 .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:109px;z-index:28}
 .tab{flex:1;text-align:center;padding:13px 6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;background:none;border-radius:0}
 .tab.active{color:var(--accent-2);border-bottom-color:var(--accent-2)}
 .search-strip{padding:10px 14px 4px}
 .search-strip input{margin:0}
-
-/* Stories */
 .stories-rail{display:flex;gap:10px;overflow-x:auto;padding:12px 14px 6px;scrollbar-width:none}
 .stories-rail::-webkit-scrollbar{display:none}
 .story-bubble{flex-shrink:0;width:68px;text-align:center;cursor:pointer}
@@ -79,69 +70,45 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .story-ring .avatar{width:100%;height:100%;font-size:22px}
 .story-bubble .label{font-size:11px;color:var(--muted);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .story-bubble.add .story-ring{background:transparent;border:2px dashed var(--accent)}
-
-/* ============================================================
-   TIKTOK FEED — FIXED CHROME (black + dark green)
-   ============================================================ */
 #screen-tiktok{padding:0}
 #screen-tiktok.active{display:block;height:100vh;overflow:hidden;position:fixed;inset:0;z-index:40;background:#000}
-
-/* Scroller contains ONLY videos + their progress bars */
 .tiktok-scroller{height:100vh;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .tiktok-scroller::-webkit-scrollbar{display:none}
 .tiktok-slide{height:100vh;scroll-snap-align:start;position:relative;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
 .tiktok-slide video{width:100%;height:100%;object-fit:contain;background:#000}
 .tiktok-slide .tap-target{position:absolute;inset:0;z-index:1}
-
-/* Fixed progress bar (updates as video plays) */
 .tt-progress-fixed{position:absolute;bottom:56px;left:0;right:0;height:2px;background:rgba(0,168,107,.2);z-index:5;overflow:hidden}
 .tt-progress-fixed .bar{height:100%;background:var(--accent-2);width:0;transition:width .15s linear}
-
-/* Fixed top tabs — dark green glass */
 .tt-fixed-top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:22px;padding:14px 70px 14px 16px;background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,rgba(0,0,0,.4) 60%,transparent 100%);z-index:6;color:#fff}
 .tt-fixed-top .tt-tab{font-size:15px;font-weight:500;color:rgba(255,255,255,.65);cursor:pointer;padding:6px 0;position:relative;background:none;border:none;width:auto}
 .tt-fixed-top .tt-tab.active{color:var(--accent-2);font-weight:700}
 .tt-fixed-top .tt-tab.active::after{content:"";position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:22px;height:2px;background:var(--accent-2);border-radius:2px}
-
-/* Fixed top-right buttons */
 .tt-fixed-top-right{position:absolute;top:14px;right:12px;display:flex;gap:6px;z-index:7}
 .tt-fixed-top-right button{width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;border:1px solid rgba(0,168,107,.3);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:0}
-
-/* Fixed shop badge */
 .tt-fixed-shop{position:absolute;top:64px;left:14px;background:var(--accent);color:#000;padding:8px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;z-index:7;display:none;align-items:center;gap:6px;box-shadow:0 4px 14px rgba(0,168,107,.5)}
 .tt-fixed-shop.show{display:flex}
-
-/* Fixed bottom-left content (author, caption, sound) */
 .tt-fixed-bottom-left{position:absolute;bottom:130px;left:14px;right:88px;color:#fff;z-index:6;pointer-events:none}
 .tt-fixed-bottom-left .tt-author{font-weight:700;font-size:16px;margin-bottom:6px;cursor:pointer;pointer-events:auto;display:inline-block;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .tt-fixed-bottom-left .tt-caption{font-size:13.5px;line-height:1.4;margin-bottom:6px;max-height:4.2em;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.8)}
 .tt-fixed-bottom-left .tt-caption a{color:#fff;text-decoration:none;font-weight:600}
 .tt-fixed-bottom-left .tt-sound{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#eee;background:rgba(0,0,0,.5);padding:4px 10px;border-radius:20px;pointer-events:auto;margin-top:4px}
 .tt-fixed-bottom-left .tt-sound svg{width:14px;height:14px}
-
-/* Fixed right action rail — dark green glow */
 .tt-fixed-actions{position:absolute;right:8px;bottom:140px;display:flex;flex-direction:column;gap:14px;align-items:center;z-index:7;color:#fff}
 .tt-fixed-actions .act{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;background:none;width:auto;padding:0;border:none}
 .tt-fixed-actions .act .icon{width:46px;height:46px;border-radius:50%;background:rgba(0,168,107,.14);border:1px solid rgba(0,168,107,.28);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;transition:transform .15s}
 .tt-fixed-actions .act:active .icon{transform:scale(.9)}
 .tt-fixed-actions .act.liked .icon{background:rgba(255,77,77,.25);border-color:rgba(255,77,77,.5)}
 .tt-fixed-actions .act .count{font-size:11.5px;font-weight:600;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
-
 .tt-fixed-avatar{position:relative;margin-bottom:2px;cursor:pointer}
 .tt-fixed-avatar .avatar{width:46px;height:46px;border-radius:50%;border:2px solid var(--accent-2);overflow:hidden;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent-2);font-size:18px}
 .tt-fixed-avatar .avatar img{width:100%;height:100%;object-fit:cover}
 .tt-fixed-avatar .plus{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:#FE2C55;color:#fff;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;border:2px solid #000}
-
 .tt-fixed-disc{width:46px;height:46px;border-radius:50%;background:radial-gradient(circle,#000 30%,#0B3D2E 60%,#000 100%);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent-2);animation:spin 4s linear infinite;border:1px solid rgba(0,168,107,.4);margin-top:4px}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* Fixed search bar */
 .tt-fixed-search{position:absolute;bottom:62px;left:14px;right:14px;background:rgba(0,168,107,.1);backdrop-filter:blur(12px);border-radius:24px;padding:10px 16px;display:flex;align-items:center;gap:10px;color:#fff;z-index:8;font-size:13.5px;cursor:pointer;border:1px solid rgba(0,168,107,.25)}
 .tt-fixed-search .icon{font-size:16px;opacity:.9;color:var(--accent-2)}
 .tt-fixed-search .text{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.9}
 .tt-fixed-search .arrow{opacity:.7}
-
-/* Fixed bottom nav — black bg, dark green active state */
 .tt-fixed-nav{position:absolute;bottom:0;left:0;right:0;background:#000;border-top:1px solid rgba(0,168,107,.15);display:flex;justify-content:space-around;align-items:center;padding:6px 0 max(8px,env(safe-area-inset-bottom)) 0;z-index:9}
 .tt-fixed-nav .tt-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:rgba(255,255,255,.55);font-size:10.5px;cursor:pointer;background:none;border:none;padding:4px 0;width:auto;font-weight:600}
 .tt-fixed-nav .tt-nav-item.active{color:var(--accent-2)}
@@ -150,13 +117,8 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .tt-nav-plus{width:42px;height:30px;background:linear-gradient(135deg,var(--accent-2),var(--accent));border-radius:9px;display:flex;align-items:center;justify-content:center;color:#000;font-size:20px;font-weight:400;position:relative;margin:0 auto}
 .tt-nav-plus::before{content:"";position:absolute;left:-5px;top:0;bottom:0;width:5px;background:var(--primary);border-radius:9px 0 0 9px;z-index:-1}
 .tt-nav-plus::after{content:"";position:absolute;right:-5px;top:0;bottom:0;width:5px;background:var(--accent);border-radius:0 9px 9px 0;z-index:-1}
-
 .heart-pop{position:absolute;pointer-events:none;font-size:80px;color:var(--danger);animation:heartPop .8s ease forwards;z-index:8;transform:translate(-50%,-50%)}
 @keyframes heartPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}30%{opacity:1;transform:translate(-50%,-50%) scale(1.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
-
-/* ============================================================
-   POSTS / FEED
-   ============================================================ */
 .post{background:var(--surface);border-radius:14px;padding:14px;margin-bottom:12px;border:1px solid var(--line)}
 .post-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .avatar{width:38px;height:38px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent-2);font-size:15px;flex-shrink:0;overflow:hidden;cursor:pointer}
@@ -178,9 +140,7 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .linked-listing .info{flex:1;min-width:0}
 .linked-listing .title{font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .linked-listing .price{color:var(--accent-2);font-weight:700;font-size:14px;margin-top:2px}
-
 .fab{position:fixed;bottom:22px;right:20px;width:58px;height:58px;border-radius:50%;background:var(--accent);color:#000;display:flex;align-items:center;justify-content:center;font-size:30px;line-height:1;box-shadow:0 6px 20px rgba(0,168,107,.45);cursor:pointer;z-index:20;border:none;font-weight:300}
-
 .sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none}
 .sheet-bg.open{display:block}
 .sheet{position:fixed;bottom:0;left:0;right:0;max-height:85vh;background:var(--surface);border-radius:18px 18px 0 0;z-index:101;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .25s}
@@ -200,7 +160,6 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .comment-actions{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px}
 .comment-actions span{cursor:pointer}
 .comment-actions span.liked{color:var(--danger)}
-
 .profile-head{display:flex;flex-direction:column;align-items:center;padding:24px 16px;gap:12px}
 .profile-avatar{width:96px;height:96px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:800;color:var(--accent-2);overflow:hidden}
 .profile-avatar img{width:100%;height:100%;object-fit:cover}
@@ -212,13 +171,11 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .profile-actions{display:flex;gap:10px;width:100%;max-width:340px;flex-wrap:wrap}
 .profile-actions button{flex:1;min-width:90px}
 .grid-label{padding:16px 16px 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:2px}
-
 .notif{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;align-items:center}
 .notif.unread{background:rgba(0,168,107,.06)}
 .notif .avatar{width:42px;height:42px;font-size:15px}
 .notif-body{flex:1;font-size:14px;line-height:1.35}
 .notif-body .muted{color:var(--muted);font-size:12px;display:block;margin-top:2px}
-
 .chat-item{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
 .chat-item .avatar{width:46px;height:46px;font-size:17px}
 .chat-meta{flex:1;min-width:0}
@@ -237,14 +194,12 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .chat-input{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--surface)}
 .chat-input input{margin:0;flex:1}
 .chat-input button{width:auto;padding:0 18px;font-size:14px}
-
 .search-section-label{padding:14px 16px 6px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:2px}
 .search-user{display:flex;gap:12px;padding:10px 16px;align-items:center;cursor:pointer}
 .tag-chip{display:inline-block;padding:6px 12px;margin:4px 6px 4px 0;background:var(--surface);border:1px solid var(--line);border-radius:20px;color:var(--accent-2);font-size:13px;cursor:pointer}
 .trend-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 14px 20px}
 .trend-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer}
 .trend-card .tag{color:var(--accent-2);font-weight:700;font-size:15px}
-
 .mk-cats{display:flex;gap:8px;padding:10px 14px;overflow-x:auto;scrollbar-width:none}
 .mk-cats::-webkit-scrollbar{display:none}
 .mk-cat{padding:7px 14px;background:var(--surface);border:1px solid var(--line);border-radius:20px;font-size:13px;color:var(--muted);white-space:nowrap;cursor:pointer}
@@ -264,7 +219,6 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .mk-gallery{display:flex;gap:8px;overflow-x:auto;margin-bottom:12px;scrollbar-width:none;padding-bottom:4px}
 .mk-gallery::-webkit-scrollbar{display:none}
 .mk-gallery .gi{flex-shrink:0;width:280px;height:280px;border-radius:12px;background:#000;object-fit:cover}
-
 .file-label{display:block;padding:14px;text-align:center;background:var(--surface);border:1px dashed var(--accent);border-radius:10px;color:var(--accent-2);font-size:14px;cursor:pointer;margin-bottom:8px}
 .file-label input{display:none}
 .upload-preview{width:100%;max-height:320px;object-fit:contain;border-radius:10px;margin-bottom:10px;background:#000}
@@ -277,7 +231,6 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 .progress{font-size:12px;color:var(--accent-2);text-align:center;margin-top:6px}
 .empty{color:var(--muted);text-align:center;padding:40px 20px;font-size:14px}
 .loading{color:var(--muted);text-align:center;padding:40px 20px;font-size:14px}
-
 .btn-danger{background:var(--danger);color:#fff}
 .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
 .verify-banner{background:rgba(0,168,107,.1);border-left:3px solid var(--accent);padding:12px 14px;margin:10px 14px;border-radius:8px;font-size:13px}
@@ -311,7 +264,7 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 </head>
 <body>
 
-<div class="offline-banner" id="offline-banner">📡 You're offline. Posts will be queued.</div>
+<div class="offline-banner" id="offline-banner">📡 Offline. Posts will queue.</div>
 
 <div id="splash">
   <div class="splash-logo">
@@ -380,43 +333,26 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
   <button class="fab" id="btn-new">+</button>
 </div>
 
-<!-- ============ TIKTOK FEED — FIXED CHROME ============ -->
 <div id="screen-tiktok" class="screen">
-
-  <!-- Fixed top tabs -->
   <div class="tt-fixed-top">
     <div class="tt-tab" data-tt="following">Following</div>
     <div class="tt-tab" data-tt="friends">Friends</div>
     <div class="tt-tab active" data-tt="foryou">For You</div>
   </div>
-
-  <!-- Fixed top-right buttons -->
   <div class="tt-fixed-top-right">
     <button id="btn-tt-search">🔍</button>
     <button id="btn-tt-mute">🔇</button>
   </div>
-
-  <!-- Fixed shop badge (shows/hides based on active video) -->
-  <div class="tt-fixed-shop" id="tt-shop">
-    🛒 <span id="tt-shop-text">Shop</span>
-  </div>
-
-  <!-- Only videos scroll here -->
+  <div class="tt-fixed-shop" id="tt-shop">🛒 <span id="tt-shop-text">Shop</span></div>
   <div class="tiktok-scroller" id="tiktok-scroller">
     <div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted)">Loading videos...</div>
   </div>
-
-  <!-- Fixed progress bar -->
   <div class="tt-progress-fixed"><div class="bar" id="tt-progress-bar"></div></div>
-
-  <!-- Fixed bottom-left (author, caption, sound) -->
   <div class="tt-fixed-bottom-left">
     <div class="tt-author" id="tt-author" data-user="">@</div>
     <div class="tt-caption" id="tt-caption"></div>
     <div id="tt-sound-wrap"></div>
   </div>
-
-  <!-- Fixed right action rail -->
   <div class="tt-fixed-actions">
     <div class="tt-fixed-avatar" id="tt-avatar" data-user="">
       <div class="avatar" id="tt-avatar-inner">?</div>
@@ -440,15 +376,11 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
     </div>
     <div class="tt-fixed-disc">🎵</div>
   </div>
-
-  <!-- Fixed search bar -->
   <div class="tt-fixed-search" id="tt-search-bar">
     <span class="icon">🔍</span>
     <span class="text" id="tt-search-text">Search TouRryl</span>
     <span class="arrow">›</span>
   </div>
-
-  <!-- Fixed bottom nav -->
   <div class="tt-fixed-nav">
     <button class="tt-nav-item active" data-ttnav="home">
       <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2v-9z"/></svg>
@@ -484,9 +416,7 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
     <div class="progress" id="compress-status"></div>
     <textarea id="post-content" placeholder="Caption... use #hashtags"></textarea>
     <input id="post-sound" placeholder="🎵 Sound name (optional)">
-    <select id="post-listing">
-      <option value="">🔗 Link to a listing (optional)</option>
-    </select>
+    <select id="post-listing"><option value="">🔗 Link to a listing (optional)</option></select>
     <div class="error" id="post-error"></div>
     <button id="btn-post">Post to TouRryl</button>
   </div>
@@ -646,7 +576,7 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
     <div class="drawer-item" data-drawer="admin" id="drawer-admin" style="display:none"><span class="ic" data-icon="shield"></span>Admin</div>
     <div class="drawer-item" data-drawer="logout"><span class="ic" data-icon="exit"></span>Log out</div>
   </div>
-  <div class="drawer-foot">TouRryl • KUMG • v3</div>
+  <div class="drawer-foot">TouRryl • KUMG • v6</div>
 </div>
 
 <div class="sheet-bg" id="sheet-bg"></div>
@@ -664,9 +594,10 @@ button.ghost{background:transparent;border:1px solid var(--line);color:var(--tex
 
 <script>
 // ============================================================
-// CONFIG
+// CONFIG — updated so it works from ANY origin (phone, Render)
 // ============================================================
-, const API = "";
+const API = "";
+
 let token = localStorage.getItem("tourryl_token") || null;
 let sessionId = localStorage.getItem("tourryl_session") || null;
 let myUserId = null;
@@ -682,12 +613,11 @@ let deviceFingerprint = null;
 let tiktokObserver = null, tiktokVideos = [];
 let tiktokMuted = true;
 let activeTikTokPost = null;
+
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
-// ============================================================
-// ICONS
-// ============================================================
+// ================= ICONS =================
 const ICONS = {
   home:{on:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.4 2.6a1 1 0 0 1 1.2 0l8.4 6.6a1 1 0 0 1 .4.8V20a2 2 0 0 1-2 2h-4.2a1 1 0 0 1-1-1v-4.6a2.2 2.2 0 0 0-4.4 0V21a1 1 0 0 1-1 1H4.6a2 2 0 0 1-2-2v-10a1 1 0 0 1 .4-.8l8.4-6.6Z"/></svg>',off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M11.4 2.6a1 1 0 0 1 1.2 0l8.4 6.6a1 1 0 0 1 .4.8V20a2 2 0 0 1-2 2h-4.2a1 1 0 0 1-1-1v-4.6a2.2 2.2 0 0 0-4.4 0V21a1 1 0 0 1-1 1H4.6a2 2 0 0 1-2-2v-10a1 1 0 0 1 .4-.8l8.4-6.6Z"/></svg>'},
   video:{on:'<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>',off:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>'},
@@ -707,11 +637,13 @@ const ICONS = {
   exit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l-4-4 4-4M5 12h11"/></svg>',
   settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>'
 };
+
 function icon(name, state) {
   const d = ICONS[name]; if (!d) return "";
   const svg = (typeof d === "string") ? d : (d[state || "off"] || d.off);
   return `<i class="ic" data-icon="${name}">${svg}</i>`;
 }
+
 function hydrateIcons(root) {
   (root || document).querySelectorAll('[data-icon]').forEach(el => {
     const name = el.dataset.icon;
@@ -720,14 +652,14 @@ function hydrateIcons(root) {
   });
 }
 
-// ============================================================
-// API / SHOW
-// ============================================================
+// ================= SHOW / API =================
 function show(id) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   const el = $(id); if (el) el.classList.add("active");
   hydrateIcons();
+  window.scrollTo(0, 0);
 }
+
 async function api(path, opts = {}) {
   opts.headers = opts.headers || {};
   if (token) opts.headers["Authorization"] = "Bearer " + token;
@@ -742,22 +674,19 @@ async function api(path, opts = {}) {
   return data;
 }
 
-// ============================================================
-// SPLASH / OFFLINE
-// ============================================================
+// ================= SPLASH =================
 const splashStart = Date.now();
 function hideSplash() {
   const wait = Math.max(0, 1200 - (Date.now() - splashStart));
   setTimeout(() => { const s = $("splash"); if (s) { s.classList.add("hide"); setTimeout(() => s.remove(), 400); } }, wait);
 }
 setTimeout(hideSplash, 5000);
+
 function setOfflineBanner(on) { const b = $("offline-banner"); if (b) b.classList.toggle("on", on); }
 window.addEventListener("online", () => setOfflineBanner(false));
 window.addEventListener("offline", () => setOfflineBanner(true));
 
-// ============================================================
-// AUTH
-// ============================================================
+// ================= AUTH =================
 $("toggle-auth").onclick = () => {
   isRegister = !isRegister;
   $("auth-username").style.display = isRegister ? "block" : "none";
@@ -768,6 +697,7 @@ $("toggle-auth").onclick = () => {
   $("toggle-auth").textContent = isRegister ? "Have an account? Log in" : "New here? Create an account";
   $("auth-error").textContent = "";
 };
+
 let regPhotoFile = null;
 $("reg-photo-circle").onclick = () => $("reg-photo-input").click();
 $("reg-photo-input").onchange = e => {
@@ -775,6 +705,7 @@ $("reg-photo-input").onchange = e => {
   regPhotoFile = f;
   $("reg-photo-circle").innerHTML = `<img src="${URL.createObjectURL(f)}">`;
 };
+
 $("btn-auth").onclick = async () => {
   $("auth-error").textContent = "";
   const email = $("auth-email").value.trim();
@@ -804,6 +735,7 @@ $("btn-auth").onclick = async () => {
   } catch (e) { $("auth-error").textContent = e.message; }
   finally { $("btn-auth").disabled = false; }
 };
+
 $("btn-logout").onclick = async () => {
   try { if (sessionId) await api(`/sessions/${sessionId}`, { method: "DELETE" }); } catch {}
   token = null; sessionId = null;
@@ -812,9 +744,7 @@ $("btn-logout").onclick = async () => {
   show("screen-auth"); $("auth-password").value = "";
 };
 
-// ============================================================
-// TOP NAV / DRAWER
-// ============================================================
+// ================= TOP NAV / DRAWER =================
 document.querySelectorAll(".nav-tab").forEach(t => {
   t.onclick = () => {
     const which = t.dataset.topnav;
@@ -835,6 +765,7 @@ document.querySelectorAll(".nav-tab").forEach(t => {
     }
   };
 });
+
 async function openDrawer() {
   $("drawer").classList.add("open"); $("drawer-bg").classList.add("open");
   try {
@@ -848,8 +779,10 @@ async function openDrawer() {
   } catch {}
   hydrateIcons(); refreshBadges();
 }
+
 function closeDrawer() { $("drawer").classList.remove("open"); $("drawer-bg").classList.remove("open"); }
 $("drawer-bg").onclick = closeDrawer;
+
 document.querySelectorAll("[data-drawer]").forEach(el => {
   el.onclick = async () => {
     const which = el.dataset.drawer; closeDrawer();
@@ -869,9 +802,7 @@ document.querySelectorAll("[data-drawer]").forEach(el => {
   };
 });
 
-// ============================================================
-// COMPRESSION
-// ============================================================
+// ================= COMPRESSION =================
 async function compressImage(file, maxDim = 1280, quality = 0.82) {
   const img = await new Promise((res, rej) => {
     const i = new Image(); i.onload = () => res(i); i.onerror = rej;
@@ -884,6 +815,7 @@ async function compressImage(file, maxDim = 1280, quality = 0.82) {
   c.getContext("2d").drawImage(img, 0, 0, w, h);
   return await new Promise(res => c.toBlob(res, "image/jpeg", quality));
 }
+
 async function compressVideo(file, maxDim = 720, vbps = 900_000) {
   if (!window.MediaRecorder) return file;
   const v = document.createElement("video"); v.muted = true; v.playsInline = true;
@@ -910,15 +842,14 @@ async function compressVideo(file, maxDim = 720, vbps = 900_000) {
   });
 }
 
-// ============================================================
-// HOME FEED
-// ============================================================
+// ================= HOME FEED =================
 document.querySelectorAll(".tabs .tab[data-tab]").forEach(t => {
   t.onclick = () => {
     document.querySelectorAll(".tabs .tab[data-tab]").forEach(x => x.classList.remove("active"));
     t.classList.add("active"); currentTab = t.dataset.tab; loadFeed();
   };
 });
+
 async function loadFeed() {
   const list = $("feed-list"); list.innerHTML = '<div class="loading">Loading...</div>';
   try {
@@ -934,9 +865,11 @@ async function loadFeed() {
     list.innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>';
   }
 }
+
 function linkify(text) {
   return esc(text).replace(/#(\w{1,50})/g, (_, t) => `<a class="tag" href="#" data-link-tag="${t}">#${t}</a>`);
 }
+
 function renderPost(p) {
   const initial = (p.username || "?")[0].toUpperCase();
   const time = new Date(p.created_at + "Z").toLocaleString();
@@ -953,11 +886,9 @@ function renderPost(p) {
   if (p.linked_listing) {
     const ll = p.linked_listing;
     const lthumb = ll.media_url ? `<img class="thumb" src="${API}${ll.media_url}">` : `<div class="thumb"></div>`;
-    linked = `<div class="linked-listing" data-lid="${ll.id}">
-      ${lthumb}
+    linked = `<div class="linked-listing" data-lid="${ll.id}">${lthumb}
       <div class="info"><div class="title">🛒 ${esc(ll.title)}</div>
-      <div class="price">${esc(ll.currency)} ${Number(ll.price).toFixed(2)}</div></div>
-    </div>`;
+      <div class="price">${esc(ll.currency)} ${Number(ll.price).toFixed(2)}</div></div></div>`;
   }
   return `<div class="post" data-id="${p.id}" data-post-id="${p.id}">
     <div class="post-head">
@@ -979,6 +910,7 @@ function renderPost(p) {
     </div>
   </div>`;
 }
+
 function bindPostEvents() {
   document.querySelectorAll("[data-like]").forEach(el => el.onclick = async () => {
     try {
@@ -1013,14 +945,13 @@ function bindPostEvents() {
   });
   document.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
 }
+
 document.addEventListener("click", e => {
   const a = e.target.closest("[data-link-tag]");
   if (a) { e.preventDefault(); openHashtag(a.dataset.linkTag); }
 });
 
-// ============================================================
-// CREATE POST
-// ============================================================
+// ================= CREATE POST =================
 $("btn-new").onclick = async () => {
   editingPostId = null; pendingFile = null;
   $("post-content").value = ""; $("preview-wrap").innerHTML = "";
@@ -1041,7 +972,9 @@ $("btn-new").onclick = async () => {
   } catch {}
   show("screen-create");
 };
+
 $("btn-cancel").onclick = () => { editingPostId = null; show("screen-feed"); };
+
 function handleFilePick(e) {
   const f = e.target.files[0]; if (!f) return;
   pendingFile = f;
@@ -1053,6 +986,7 @@ function handleFilePick(e) {
 $("file-input").onchange = handleFilePick;
 $("camera-photo").onchange = handleFilePick;
 $("camera-video").onchange = handleFilePick;
+
 $("btn-post").onclick = async () => {
   const content = $("post-content").value.trim();
   if (!content && !pendingFile) return $("post-error").textContent = "Add text or media";
@@ -1078,16 +1012,13 @@ $("btn-post").onclick = async () => {
                    sound_name: $("post-sound").value.trim() || null };
     const lid = $("post-listing").value;
     if (lid) body.listing_id = parseInt(lid);
-    const res = await api("/posts", { method: "POST", body });
-    if (res && res.flagged === "restricted") alert("Your post is under review.");
+    await api("/posts", { method: "POST", body });
     show("screen-feed"); loadFeed();
   } catch (e) { $("post-error").textContent = e.message; }
   finally { $("btn-post").textContent = "Post to TouRryl"; $("btn-post").disabled = false; }
 };
 
-// ============================================================
-// POST MENU
-// ============================================================
+// ================= POST MENU =================
 function openActionMenu(postId, authorId) {
   const isMine = String(authorId) === String(myUserId);
   const opts = isMine ? ["Delete post", "Cancel"] : ["Report post", "Block user", "Cancel"];
@@ -1105,8 +1036,7 @@ function openActionMenu(postId, authorId) {
       } else if (label === "Report post") {
         const reason = prompt("Reason: spam, harassment, hate, violence, nudity, other");
         if (!reason) return;
-        try { await api("/reports", { method: "POST", body: { post_id: parseInt(postId), reason } });
-              alert("Reported."); } catch (e) { alert(e.message); }
+        try { await api("/reports", { method: "POST", body: { post_id: parseInt(postId), reason } }); alert("Reported."); } catch (e) { alert(e.message); }
       } else if (label === "Block user") {
         if (!confirm("Block this user?")) return;
         try { await api(`/users/${authorId}/block`, { method: "POST" }); loadFeed(); } catch (e) { alert(e.message); }
@@ -1115,12 +1045,11 @@ function openActionMenu(postId, authorId) {
   });
 }
 
-// ============================================================
-// COMMENTS SHEET
-// ============================================================
+// ================= COMMENTS SHEET =================
 function openSheet() { $("sheet").classList.add("open"); $("sheet-bg").classList.add("open"); }
 function closeSheet() { $("sheet").classList.remove("open"); $("sheet-bg").classList.remove("open"); }
 $("sheet-bg").onclick = closeSheet;
+
 async function openComments(postId) {
   activePostId = postId;
   $("sheet-body").innerHTML = '<div class="loading">Loading...</div>';
@@ -1129,6 +1058,7 @@ async function openComments(postId) {
   openSheet();
   await refreshComments();
 }
+
 async function refreshComments() {
   try {
     const list = await api(`/posts/${activePostId}/comments`);
@@ -1145,6 +1075,7 @@ async function refreshComments() {
     });
   } catch (e) { $("sheet-body").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
+
 function renderComment(c) {
   const init = (c.username || "?")[0].toUpperCase();
   const av = c.avatar_url ? `<img src="${API}${c.avatar_url}">` : init;
@@ -1157,6 +1088,7 @@ function renderComment(c) {
       </div>
     </div></div>`;
 }
+
 $("comment-send").onclick = async () => {
   const body = $("comment-input").value.trim(); if (!body) return;
   $("comment-send").disabled = true;
@@ -1167,9 +1099,7 @@ $("comment-send").onclick = async () => {
   finally { $("comment-send").disabled = false; }
 };
 
-// ============================================================
-// TIKTOK FEED — FIXED CHROME
-// ============================================================
+// ================= TIKTOK =================
 async function openTikTok() {
   const scroller = $("tiktok-scroller");
   scroller.innerHTML = '<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--muted)">Loading videos...</div>';
@@ -1182,7 +1112,6 @@ async function openTikTok() {
       return;
     }
     tiktokVideos = posts;
-    // Render only video + tap-target + progress inside each slide
     scroller.innerHTML = posts.map((p, i) => `
       <div class="tiktok-slide" data-idx="${i}" data-post-id="${p.id}">
         <video src="${API}${p.media_url}" loop playsinline preload="metadata"></video>
@@ -1190,7 +1119,6 @@ async function openTikTok() {
       </div>
     `).join("");
     bindTikTok();
-    // Show first slide's data in the fixed overlay
     if (tiktokVideos.length) updateActiveTikTokOverlay(tiktokVideos[0]);
   } catch (e) {
     scroller.innerHTML = '<div style="height:100vh;display:flex;align-items:center;justify-content:center;color:var(--danger)">' + esc(e.message) + '</div>';
@@ -1211,7 +1139,6 @@ function bindTikTok() {
         vid.muted = tiktokMuted;
         vid.volume = 1.0;
         vid.play().catch(() => {});
-        // Update fixed overlay with this slide's data
         if (tiktokVideos[idx]) updateActiveTikTokOverlay(tiktokVideos[idx]);
       } else {
         vid.pause();
@@ -1228,24 +1155,17 @@ function bindTikTok() {
     tap.addEventListener("click", (e) => {
       if (tiktokMuted) {
         tiktokMuted = false;
-        slides.forEach(sl => {
-          const v = sl.querySelector("video");
-          if (v) v.muted = false;
-        });
-        const mb = $("btn-tt-mute");
-        if (mb) mb.textContent = "🔊";
+        slides.forEach(sl => { const v = sl.querySelector("video"); if (v) v.muted = false; });
+        const mb = $("btn-tt-mute"); if (mb) mb.textContent = "🔊";
         return;
       }
       const now = Date.now();
       if (now - lastTap < 300) {
-        const postId = s.dataset.postId;
-        const likeIcon = $("tt-like-icon");
         const likeAct = $("tt-like-act");
         if (likeAct && !likeAct.classList.contains("liked")) {
           const rect = s.getBoundingClientRect();
           const heart = document.createElement("div");
-          heart.className = "heart-pop";
-          heart.textContent = "❤️";
+          heart.className = "heart-pop"; heart.textContent = "❤️";
           heart.style.left = (e.clientX - rect.left) + "px";
           heart.style.top = (e.clientY - rect.top) + "px";
           s.appendChild(heart);
@@ -1258,7 +1178,6 @@ function bindTikTok() {
         if (vid.paused) vid.play().catch(() => {}); else vid.pause();
       }
     });
-    // Progress bar (updates the fixed progress bar)
     vid.addEventListener("timeupdate", () => {
       const active = document.querySelector(".tiktok-slide.active-slide");
       if (active && active.dataset.postId === s.dataset.postId) {
@@ -1272,58 +1191,37 @@ function bindTikTok() {
     });
   });
 
-  // Fixed action buttons — data-targets updated by updateActiveTikTokOverlay
   $("tt-like-act").onclick = async () => {
-    const pid = $("tt-like-act").dataset.tlike;
-    if (!pid) return;
+    const pid = $("tt-like-act").dataset.tlike; if (!pid) return;
     try {
       const r = await api(`/posts/${pid}/like`, { method: "POST" });
-      const icon = $("tt-like-icon");
       const cnt = $("tt-like-count");
       const n = parseInt(cnt.textContent) || 0;
-      icon.textContent = r.liked ? "❤️" : "🤍";
+      $("tt-like-icon").textContent = r.liked ? "❤️" : "🤍";
       cnt.textContent = r.liked ? n + 1 : Math.max(0, n - 1);
       $("tt-like-act").classList.toggle("liked", r.liked);
-      // Update cached post
-      const cached = tiktokVideos.find(p => String(p.id) === String(pid));
-      if (cached) { cached.liked = r.liked; cached.likes_count = parseInt(cnt.textContent); }
     } catch {}
   };
-  $("tt-comment-act").onclick = () => {
-    const pid = $("tt-comment-act").dataset.tcomment;
-    if (pid) openComments(pid);
-  };
+  $("tt-comment-act").onclick = () => { const pid = $("tt-comment-act").dataset.tcomment; if (pid) openComments(pid); };
   $("tt-save-act").onclick = async () => {
-    const pid = $("tt-save-act").dataset.tsave;
-    if (!pid) return;
+    const pid = $("tt-save-act").dataset.tsave; if (!pid) return;
     try {
-      const r = await api("/saves/toggle", { method: "POST",
-        body: { item_type: "post", item_id: parseInt(pid) } });
+      const r = await api("/saves/toggle", { method: "POST", body: { item_type: "post", item_id: parseInt(pid) } });
       $("tt-save-icon").textContent = r.saved ? "🔖" : "📑";
     } catch {}
   };
   $("tt-repost-act").onclick = async () => {
-    const pid = $("tt-repost-act").dataset.trepost;
-    if (!pid) return;
+    const pid = $("tt-repost-act").dataset.trepost; if (!pid) return;
     try {
       const r = await api(`/posts/${pid}/repost`, { method: "POST" });
       $("tt-repost-act").style.color = r.reposted ? "var(--accent-2)" : "";
     } catch {}
   };
-  $("tt-avatar").onclick = () => {
-    const uid = $("tt-avatar").dataset.user;
-    if (uid) openProfile(uid);
-  };
-  $("tt-author").onclick = () => {
-    const uid = $("tt-author").dataset.user;
-    if (uid) openProfile(uid);
-  };
-
-  // Top-right search + mute
+  $("tt-avatar").onclick = () => { const uid = $("tt-avatar").dataset.user; if (uid) openProfile(uid); };
+  $("tt-author").onclick = () => { const uid = $("tt-author").dataset.user; if (uid) openProfile(uid); };
   $("btn-tt-search").onclick = () => {
     if (tiktokObserver) tiktokObserver.disconnect();
-    show("screen-search");
-    setTimeout(() => $("search-input").focus(), 100);
+    show("screen-search"); setTimeout(() => $("search-input").focus(), 100);
   };
   $("btn-tt-mute").onclick = (e) => {
     e.stopPropagation();
@@ -1331,8 +1229,6 @@ function bindTikTok() {
     document.querySelectorAll(".tiktok-slide video").forEach(v => { v.muted = tiktokMuted; });
     $("btn-tt-mute").textContent = tiktokMuted ? "🔇" : "🔊";
   };
-
-  // Top tabs
   document.querySelectorAll("[data-tt]").forEach(el => el.onclick = () => {
     if (el.dataset.tt === "following") {
       if (tiktokObserver) tiktokObserver.disconnect();
@@ -1349,8 +1245,6 @@ function bindTikTok() {
     document.querySelectorAll("[data-tt]").forEach(x => x.classList.remove("active"));
     el.classList.add("active");
   });
-
-  // Bottom nav
   document.querySelectorAll("[data-ttnav]").forEach(el => el.onclick = () => {
     const v = el.dataset.ttnav;
     if (v === "home") { if (tiktokObserver) tiktokObserver.disconnect(); show("screen-feed");
@@ -1358,33 +1252,24 @@ function bindTikTok() {
       hydrateIcons(); $("view-home").style.display = "block"; $("view-marketplace").style.display = "none"; $("btn-new").style.display = "flex"; }
     else if (v === "explore") { if (tiktokObserver) tiktokObserver.disconnect(); show("screen-feed");
       document.querySelectorAll(".nav-tab").forEach(x => x.classList.toggle("active", x.dataset.topnav === "marketplace"));
-      hydrateIcons(); $("view-home").style.display = "none"; $("view-marketplace").style.display = "block"; $("btn-new").style.display = "none";
-      loadMarketplace(); }
+      hydrateIcons(); $("view-home").style.display = "none"; $("view-marketplace").style.display = "block"; $("btn-new").style.display = "none"; loadMarketplace(); }
     else if (v === "create") { if (tiktokObserver) tiktokObserver.disconnect(); $("btn-new").click(); }
     else if (v === "inbox") { if (tiktokObserver) tiktokObserver.disconnect(); show("screen-messages"); loadConversations(); }
     else if (v === "me") { if (tiktokObserver) tiktokObserver.disconnect(); openProfile(myUserId); }
   });
-
-  // Search bar
   $("tt-search-bar").onclick = () => {
     if (tiktokObserver) tiktokObserver.disconnect();
-    show("screen-search");
-    setTimeout(() => $("search-input").focus(), 100);
+    show("screen-search"); setTimeout(() => $("search-input").focus(), 100);
   };
 }
 
-// Update fixed overlay with the active post
 function updateActiveTikTokOverlay(p) {
   activeTikTokPost = p;
-  // Author
   $("tt-author").textContent = "@" + (p.username || "");
   $("tt-author").dataset.user = p.author_id;
   $("tt-avatar").dataset.user = p.author_id;
-  const av = p.avatar_url
-    ? `<img src="${API}${p.avatar_url}">`
-    : (p.username || "?")[0].toUpperCase();
+  const av = p.avatar_url ? `<img src="${API}${p.avatar_url}">` : (p.username || "?")[0].toUpperCase();
   $("tt-avatar-inner").innerHTML = av;
-  // Caption + hashtags
   const caption = p.content || "";
   const hashtags = caption.match(/#\w+/g) || [];
   const cleanCaption = caption.replace(/#\w+/g, "").trim();
@@ -1392,14 +1277,10 @@ function updateActiveTikTokOverlay(p) {
   if (cleanCaption) capHtml += esc(cleanCaption);
   if (hashtags.length) capHtml += (capHtml ? " " : "") + hashtags.map(h => `<a href="#" data-link-tag="${h.slice(1)}">${esc(h)}</a>`).join(" ");
   $("tt-caption").innerHTML = capHtml;
-  $("tt-caption").querySelectorAll("[data-link-tag]").forEach(el => el.onclick = (e) => {
-    e.preventDefault(); openHashtag(el.dataset.linkTag);
-  });
-  // Sound
+  $("tt-caption").querySelectorAll("[data-link-tag]").forEach(el => el.onclick = (e) => { e.preventDefault(); openHashtag(el.dataset.linkTag); });
   $("tt-sound-wrap").innerHTML = p.sound_name
     ? `<div class="tt-sound"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg><span>${esc(p.sound_name.slice(0, 40))}</span></div>`
     : "";
-  // Like / comment / save / repost
   $("tt-like-act").dataset.tlike = p.id;
   $("tt-like-icon").textContent = p.liked ? "❤️" : "🤍";
   $("tt-like-count").textContent = p.likes_count || 0;
@@ -1411,7 +1292,6 @@ function updateActiveTikTokOverlay(p) {
   $("tt-save-count").textContent = p.likes_count || 0;
   $("tt-repost-act").dataset.trepost = p.id;
   $("tt-repost-act").style.color = p.reposted ? "var(--accent-2)" : "";
-  // Shop badge
   if (p.linked_listing) {
     $("tt-shop").classList.add("show");
     $("tt-shop-text").textContent = `${p.linked_listing.title.slice(0, 25)} — ${p.linked_listing.currency} ${Number(p.linked_listing.price).toFixed(2)}`;
@@ -1419,15 +1299,11 @@ function updateActiveTikTokOverlay(p) {
   } else {
     $("tt-shop").classList.remove("show");
   }
-  // Search bar text
   $("tt-search-text").textContent = "Search · " + (caption.slice(0, 40) || "TouRryl");
-  // Reset progress
   $("tt-progress-bar").style.width = "0%";
 }
 
-// ============================================================
-// PROFILE
-// ============================================================
+// ================= PROFILE =================
 async function openProfile(uid) {
   viewingUserId = uid; show("screen-profile");
   $("profile-content").innerHTML = '<div class="loading">Loading...</div>';
@@ -1493,6 +1369,7 @@ async function openProfile(uid) {
   } catch (e) { $("profile-content").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
 $("btn-profile-back").onclick = () => show("screen-feed");
+
 async function openEditProfile(user) {
   show("screen-edit");
   $("avatar-preview-wrap").innerHTML = ""; $("avatar-input").value = "";
@@ -1528,9 +1405,7 @@ $("btn-save-profile").onclick = async () => {
   finally { $("btn-save-profile").textContent = "Save"; $("btn-save-profile").disabled = false; }
 };
 
-// ============================================================
-// NOTIFICATIONS
-// ============================================================
+// ================= NOTIFICATIONS =================
 $("btn-notifications").onclick = async () => {
   show("screen-notifications");
   $("notif-list").innerHTML = '<div class="loading">Loading...</div>';
@@ -1574,9 +1449,7 @@ $("btn-notifications").onclick = async () => {
 };
 $("btn-notif-back").onclick = () => show("screen-feed");
 
-// ============================================================
-// MESSAGES
-// ============================================================
+// ================= MESSAGES =================
 async function loadConversations() {
   $("chat-list").innerHTML = '<div class="loading">Loading...</div>';
   try {
@@ -1599,12 +1472,14 @@ async function loadConversations() {
   } catch (e) { $("chat-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
 $("btn-msg-back").onclick = () => show("screen-feed");
+
 async function openChat(cid, name, otherId) {
   chatId = cid; chatOtherId = otherId || null; lastMsgId = 0;
   $("chat-title").textContent = name ? "@" + name : "Chat";
   $("chat-messages").innerHTML = '<div class="loading">Loading...</div>';
   show("screen-chat"); await pollMessages();
 }
+
 async function pollMessages() {
   if (!chatId) return;
   try {
@@ -1630,9 +1505,7 @@ $("chat-send").onclick = async () => {
 $("chat-input").addEventListener("keydown", e => { if (e.key === "Enter") $("chat-send").click(); });
 $("btn-chat-back").onclick = () => { chatId = null; chatOtherId = null; show("screen-messages"); loadConversations(); };
 
-// ============================================================
-// BADGES
-// ============================================================
+// ================= BADGES =================
 async function refreshBadges() {
   try {
     const b = await api("/badges");
@@ -1644,12 +1517,11 @@ async function refreshBadges() {
 }
 setInterval(() => { if (token) refreshBadges(); }, 20000);
 
-// ============================================================
-// SEARCH
-// ============================================================
+// ================= SEARCH =================
 $("btn-search").onclick = () => { show("screen-search"); $("search-input").focus(); };
 $("inline-search").onclick = () => { show("screen-search"); $("search-input").focus(); };
 $("btn-search-back").onclick = () => show("screen-feed");
+
 let searchTimer = null;
 $("search-input").addEventListener("input", e => {
   clearTimeout(searchTimer);
@@ -1657,6 +1529,7 @@ $("search-input").addEventListener("input", e => {
   if (!q) { $("search-results").innerHTML = ""; return; }
   searchTimer = setTimeout(() => runSearch(q), 400);
 });
+
 async function runSearch(q) {
   const box = $("search-results");
   box.innerHTML = '<div class="loading">Searching...</div>';
@@ -1693,9 +1566,7 @@ async function runSearch(q) {
   } catch (e) { box.innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
 
-// ============================================================
-// HASHTAG / TRENDING / SAVED
-// ============================================================
+// ================= HASHTAG / TRENDING / SAVED =================
 async function openHashtag(tag) {
   tag = tag.replace(/^#/, "").toLowerCase();
   $("hashtag-title").textContent = "#" + tag;
@@ -1709,6 +1580,7 @@ async function openHashtag(tag) {
   } catch (e) { $("hashtag-feed").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
 $("btn-hashtag-back").onclick = () => show("screen-feed");
+
 async function openTrending() {
   show("screen-trending");
   $("trend-grid").innerHTML = '<div class="loading" style="grid-column:1/-1">Loading...</div>';
@@ -1724,6 +1596,7 @@ async function openTrending() {
   } catch (e) { $("trend-grid").innerHTML = '<div class="empty" style="grid-column:1/-1;color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
 $("btn-trending-back").onclick = () => show("screen-feed");
+
 async function openSaved() { show("screen-saved"); await loadSaved(); }
 async function loadSaved() {
   const box = $("saved-content"); box.innerHTML = '<div class="loading">Loading...</div>';
@@ -1749,9 +1622,7 @@ document.querySelectorAll("[data-savedtab]").forEach(t => {
 });
 $("btn-saved-back").onclick = () => show("screen-feed");
 
-// ============================================================
-// MARKETPLACE
-// ============================================================
+// ================= MARKETPLACE =================
 const MK_CATS = ["all","electronics","clothing","vehicles","home","services","food","beauty","property","jobs","other"];
 function renderMkCats() {
   $("mk-cats").innerHTML = MK_CATS.map(c =>
@@ -1772,13 +1643,10 @@ function renderMkCats() {
   $("mk-filters").innerHTML = filters.map((f, i) =>
     `<div class="mk-filter ${f.active ? 'active' : ''}" data-fi="${i}">${f.label}</div>`).join("");
   $("mk-filters").querySelectorAll(".mk-filter").forEach(el => {
-    el.onclick = () => {
-      filters[parseInt(el.dataset.fi)].apply();
-      renderMkCats();
-      loadMarketplace();
-    };
+    el.onclick = () => { filters[parseInt(el.dataset.fi)].apply(); renderMkCats(); loadMarketplace(); };
   });
 }
+
 async function loadMarketplace() {
   renderMkCats();
   const grid = $("mk-grid");
@@ -1795,6 +1663,7 @@ async function loadMarketplace() {
     grid.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
   } catch (e) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1;color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
+
 function renderListingCard(l) {
   const thumb = l.media_url
     ? (l.media_type === "video"
@@ -1808,9 +1677,7 @@ function renderListingCard(l) {
     <div class="meta">@${esc(l.username)}${l.location ? " • " + esc(l.location) : ""}</div></div></div>`;
 }
 
-// ============================================================
-// LISTING DETAIL
-// ============================================================
+// ================= LISTING DETAIL =================
 async function openListing(lid) {
   activeListingId = lid;
   $("listing-body").innerHTML = '<div class="loading">Loading...</div>';
@@ -1844,7 +1711,6 @@ async function openListing(lid) {
            <div class="body"><div class="title">${esc(o.title)}</div>
            <div class="price">${esc(o.currency)} ${Number(o.price).toFixed(2)}</div></div>
          </div>`).join("")}</div>` : "";
-
     const actionsHtml = isMine
       ? `<button class="btn-danger" id="btn-listing-sold">Mark sold</button>
          <button class="btn-ghost" id="btn-listing-offers">Offers</button>
@@ -1854,17 +1720,13 @@ async function openListing(lid) {
          ${l.offers_enabled ? `<button id="btn-listing-offer" style="background:var(--accent-2);color:#000">Make offer</button>` : ""}
          ${l.stripe_enabled && l.status === "active" ? `<button id="btn-listing-buy">Buy now</button>` : ""}
          <button class="btn-ghost" id="btn-listing-save">${l.saved ? '🔖 Saved' : '🔖 Save'}</button>`;
-
     $("listing-body").innerHTML = `
       ${galleryHtml}
       <div style="font-size:24px;font-weight:800;color:var(--accent-2);margin:10px 0">${esc(l.currency)} ${Number(l.price).toFixed(2)}</div>
       <div style="font-size:17px;font-weight:700;margin-bottom:6px">${esc(l.title)}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
         <div class="avatar" data-user="${l.seller_id}" style="width:36px;height:36px">${l.avatar_url ? `<img src="${API}${l.avatar_url}">` : (l.username||"?")[0].toUpperCase()}</div>
-        <div>
-          <div style="font-weight:600">@${esc(l.username)}</div>
-          ${ratingLine}
-        </div>
+        <div><div style="font-weight:600">@${esc(l.username)}</div>${ratingLine}</div>
       </div>
       ${l.condition ? `<div style="margin-bottom:8px"><span class="pill ${l.condition}">${esc(l.condition)}</span></div>` : ""}
       <div style="color:var(--muted);font-size:12px;margin-bottom:14px">${l.location ? '📍 ' + esc(l.location) + ' • ' : ''}${l.views_count} views</div>
@@ -1872,10 +1734,8 @@ async function openListing(lid) {
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">${actionsHtml}</div>
       ${otherListings}
       ${relatedListings}`;
-
     document.querySelectorAll("[data-lid]").forEach(el => el.onclick = () => openListing(el.dataset.lid));
     document.querySelectorAll("[data-user]").forEach(el => el.onclick = () => openProfile(el.dataset.user));
-
     const mb = $("btn-listing-msg");
     if (mb) mb.onclick = async () => {
       const c = await api(`/conversations/with/${l.seller_id}`, { method: "POST" });
@@ -1930,17 +1790,13 @@ function openOfferSheet(lid, title, listPrice, currency) {
     if (isNaN(amt) || amt <= 0) return $("offer-error").textContent = "Enter a valid amount";
     $("btn-offer-send").disabled = true;
     try {
-      await api(`/listings/${lid}/offers`, { method: "POST",
-        body: { amount: amt, message: $("offer-message").value.trim() } });
-      closeSheet();
-      alert("Offer sent!");
+      await api(`/listings/${lid}/offers`, { method: "POST", body: { amount: amt, message: $("offer-message").value.trim() } });
+      closeSheet(); alert("Offer sent!");
     } catch (e) { $("offer-error").textContent = e.message; $("btn-offer-send").disabled = false; }
   };
 }
 
-// ============================================================
-// MY OFFERS
-// ============================================================
+// ================= MY OFFERS / RECEIVED =================
 async function openMyOffers() {
   show("screen-offers");
   $("offers-list").innerHTML = '<div class="loading">Loading...</div>';
@@ -1951,22 +1807,15 @@ async function openMyOffers() {
       const thumb = o.media_url ? `<img src="${API}${o.media_url}" style="width:48px;height:48px;border-radius:8px;object-fit:cover">` : "";
       const statusColor = { pending: "#FFC800", accepted: "var(--accent)", declined: "var(--danger)", countered: "var(--accent-2)" }[o.status] || "var(--muted)";
       return `<div class="offer-card">
-        <div style="display:flex;gap:10px;align-items:center">
-          ${thumb}
-          <div style="flex:1">
-            <div style="font-weight:600">${esc(o.listing_title)}</div>
-            <div style="color:var(--muted);font-size:11px;margin-top:2px">From @${esc(o.seller_username)}</div>
-          </div>
-          <div style="text-align:right">
-            <div class="offer-amount">$${Number(o.amount).toFixed(2)}</div>
-            <div style="color:${statusColor};font-size:11px;font-weight:700;text-transform:uppercase;margin-top:2px">${o.status}</div>
-          </div>
+        <div style="display:flex;gap:10px;align-items:center">${thumb}
+          <div style="flex:1"><div style="font-weight:600">${esc(o.listing_title)}</div>
+          <div style="color:var(--muted);font-size:11px;margin-top:2px">From @${esc(o.seller_username)}</div></div>
+          <div style="text-align:right"><div class="offer-amount">$${Number(o.amount).toFixed(2)}</div>
+          <div style="color:${statusColor};font-size:11px;font-weight:700;text-transform:uppercase;margin-top:2px">${o.status}</div></div>
         </div>
         ${o.counter_amount ? `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">Seller counter: <b style="color:var(--accent-2)">$${Number(o.counter_amount).toFixed(2)}</b></div>` : ""}
         ${o.message ? `<div style="margin-top:8px;color:var(--muted);font-size:12px">"${esc(o.message)}"</div>` : ""}
-        <div class="offer-actions">
-          <button class="btn-ghost" data-view-listing="${o.listing_id}">View listing</button>
-        </div>
+        <div class="offer-actions"><button class="btn-ghost" data-view-listing="${o.listing_id}">View listing</button></div>
       </div>`;
     }).join("");
     $("offers-list").querySelectorAll("[data-view-listing]").forEach(el => el.onclick = () => openListing(el.dataset.viewListing));
@@ -1987,11 +1836,9 @@ async function openOffersReceived(lid, title) {
       return `<div class="offer-card">
         <div style="display:flex;gap:10px;align-items:center">
           <div class="avatar" style="width:44px;height:44px">${av}</div>
-          <div style="flex:1">
-            <b>@${esc(o.username)}</b>
-            <div class="offer-amount">$${Number(o.amount).toFixed(2)}</div>
-            <div style="color:${statusColor};font-size:11px;font-weight:700;text-transform:uppercase">${o.status}</div>
-          </div>
+          <div style="flex:1"><b>@${esc(o.username)}</b>
+          <div class="offer-amount">$${Number(o.amount).toFixed(2)}</div>
+          <div style="color:${statusColor};font-size:11px;font-weight:700;text-transform:uppercase">${o.status}</div></div>
         </div>
         ${o.message ? `<div style="margin-top:8px;color:var(--muted);font-size:12px">"${esc(o.message)}"</div>` : ""}
         ${o.status === "pending" || o.status === "countered"
@@ -1999,8 +1846,7 @@ async function openOffersReceived(lid, title) {
                <button data-oaccept="${o.id}" style="background:var(--accent);color:#000">Accept</button>
                <button class="btn-ghost" data-ocounter="${o.id}">Counter</button>
                <button class="btn-danger" data-odecline="${o.id}">Decline</button>
-             </div>`
-          : ""}
+             </div>` : ""}
       </div>`;
     }).join("");
     $("offers-received-list").querySelectorAll("[data-oaccept]").forEach(el => el.onclick = async () => {
@@ -2014,17 +1860,14 @@ async function openOffersReceived(lid, title) {
     $("offers-received-list").querySelectorAll("[data-ocounter]").forEach(el => el.onclick = async () => {
       const amt = parseFloat(prompt("Counter amount:"));
       if (isNaN(amt) || amt <= 0) return;
-      await api(`/offers/${el.dataset.ocounter}/respond`, { method: "POST",
-        body: { action: "counter", counter_amount: amt } });
+      await api(`/offers/${el.dataset.ocounter}/respond`, { method: "POST", body: { action: "counter", counter_amount: amt } });
       openOffersReceived(lid, title);
     });
   } catch (e) { $("offers-received-list").innerHTML = '<div class="empty" style="color:var(--danger)">' + esc(e.message) + '</div>'; }
 }
 $("btn-offers-received-back").onclick = () => show("screen-my-listings");
 
-// ============================================================
-// CREATE LISTING
-// ============================================================
+// ================= CREATE LISTING =================
 function openCreateListing() {
   editingListingId = null; listingFiles = [];
   $("cl-title").textContent = "New listing"; $("btn-publish-listing").textContent = "Publish listing";
@@ -2048,6 +1891,7 @@ function openEditListing(l) {
   show("screen-create-listing");
 }
 $("btn-createlist-cancel").onclick = () => { editingListingId = null; show("screen-feed"); };
+
 $("listing-file").onchange = e => {
   const files = Array.from(e.target.files);
   files.forEach(f => {
@@ -2061,12 +1905,10 @@ $("listing-file").onchange = e => {
     $("listing-thumbs").appendChild(div);
   });
   $("listing-thumbs").querySelectorAll("[data-rm]").forEach(el => {
-    el.onclick = () => {
-      listingFiles.splice(parseInt(el.dataset.rm), 1);
-      el.parentElement.remove();
-    };
+    el.onclick = () => { listingFiles.splice(parseInt(el.dataset.rm), 1); el.parentElement.remove(); };
   });
 };
+
 $("btn-publish-listing").onclick = async () => {
   const title = $("listing-title-in").value.trim();
   const price = parseFloat($("listing-price").value);
@@ -2094,8 +1936,7 @@ $("btn-publish-listing").onclick = async () => {
     let lid;
     if (editing) {
       await api(`/listings/${editingListingId}`, { method: "PATCH", body });
-      lid = editingListingId;
-      editingListingId = null;
+      lid = editingListingId; editingListingId = null;
     } else {
       const r = await api("/listings", { method: "POST", body });
       lid = r.id;
@@ -2109,9 +1950,7 @@ $("btn-publish-listing").onclick = async () => {
             $("btn-publish-listing").disabled = false; }
 };
 
-// ============================================================
-// MY LISTINGS
-// ============================================================
+// ================= MY LISTINGS =================
 async function openMyListings() {
   show("screen-my-listings");
   $("my-listings-grid").innerHTML = '<div class="loading" style="grid-column:1/-1">Loading...</div>';
@@ -2125,9 +1964,7 @@ async function openMyListings() {
 }
 $("btn-mylist-back").onclick = () => show("screen-feed");
 
-// ============================================================
-// ORDERS
-// ============================================================
+// ================= ORDERS =================
 async function openOrders() {
   show("screen-orders"); $("orders-list").innerHTML = '<div class="loading">Loading...</div>';
   try {
@@ -2137,14 +1974,11 @@ async function openOrders() {
       const isBuyer = String(o.buyer_id) === String(myUserId);
       const thumb = o.listing_media ? `<img class="thumb" src="${API}${o.listing_media}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">` : "";
       return `<div class="offer-card">
-        <div style="display:flex;gap:12px;align-items:center">
-          ${thumb}
-          <div style="flex:1">
-            <div style="font-weight:700">${esc(o.listing_title)}</div>
-            <div style="color:var(--muted);font-size:12px;margin-top:2px">${isBuyer ? "From @" + esc(o.seller_username) : "To @" + esc(o.buyer_username)}</div>
-            <div style="color:var(--accent-2);font-weight:700;margin-top:4px">${esc(o.currency)} ${Number(o.amount).toFixed(2)}</div>
-            <div style="margin-top:6px"><span class="pill" style="background:#333">${o.status}</span></div>
-          </div>
+        <div style="display:flex;gap:12px;align-items:center">${thumb}
+          <div style="flex:1"><div style="font-weight:700">${esc(o.listing_title)}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:2px">${isBuyer ? "From @" + esc(o.seller_username) : "To @" + esc(o.buyer_username)}</div>
+          <div style="color:var(--accent-2);font-weight:700;margin-top:4px">${esc(o.currency)} ${Number(o.amount).toFixed(2)}</div>
+          <div style="margin-top:6px"><span class="pill" style="background:#333">${o.status}</span></div></div>
         </div>
       </div>`;
     }).join("");
@@ -2152,9 +1986,7 @@ async function openOrders() {
 }
 $("btn-orders-back").onclick = () => show("screen-feed");
 
-// ============================================================
-// VERIFY / SETTINGS / ADMIN
-// ============================================================
+// ================= VERIFY / SETTINGS / ADMIN =================
 async function openVerify() {
   show("screen-verify"); $("verify-body").innerHTML = '<div class="loading">Loading...</div>';
   try {
@@ -2218,6 +2050,7 @@ async function openAdmin() {
   } catch (e) { $("admin-stats").innerHTML = '<div style="color:var(--danger);grid-column:1/-1">' + esc(e.message) + '</div>'; }
 }
 $("btn-admin-back").onclick = () => show("screen-feed");
+
 async function loadAdminUsers(q) {
   try {
     const list = await api("/admin/users" + (q ? "?q=" + encodeURIComponent(q) : ""));
@@ -2233,9 +2066,7 @@ $("admin-user-search").addEventListener("input", e => {
   adminTimer = setTimeout(() => loadAdminUsers(e.target.value.trim()), 300);
 });
 
-// ============================================================
-// STORIES
-// ============================================================
+// ================= STORIES =================
 async function loadStories() {
   const rail = $("stories-rail");
   try {
@@ -2257,6 +2088,7 @@ async function loadStories() {
     });
   } catch { rail.innerHTML = ""; }
 }
+
 async function addStory() {
   const input = document.createElement("input");
   input.type = "file"; input.accept = "image/*,video/*";
@@ -2277,6 +2109,7 @@ async function addStory() {
   };
   input.click();
 }
+
 let storyCtx = null, storyIdx = 0, storyTimer = null;
 function openStoryViewer(group, idx) {
   storyCtx = group; storyIdx = idx;
@@ -2310,14 +2143,11 @@ function storyNext() {
 }
 function closeStoryViewer() {
   clearTimeout(storyTimer);
-  const v = $("story-viewer");
-  if (v) v.style.display = "none";
+  const v = $("story-viewer"); if (v) v.style.display = "none";
   storyCtx = null;
 }
 
-// ============================================================
-// BOOT
-// ============================================================
+// ================= BOOT =================
 const urlParams = new URLSearchParams(location.search);
 if (urlParams.get("paid") === "1") { setTimeout(() => alert("Payment successful!"), 800); history.replaceState({}, "", "tourryl.html"); }
 else if (urlParams.get("cancelled") === "1") { setTimeout(() => alert("Checkout cancelled."), 800); history.replaceState({}, "", "tourryl.html"); }
@@ -2331,6 +2161,7 @@ function enterApp() {
   setOfflineBanner(!navigator.onLine);
   hideSplash();
 }
+
 if (token) {
   api("/me").then(() => enterApp()).catch(() => {
     token = null; localStorage.removeItem("tourryl_token");
