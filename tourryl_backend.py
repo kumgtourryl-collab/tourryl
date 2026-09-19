@@ -1,18 +1,14 @@
 # ============================================================
-# tourryl_backend.py — KUMG / TouRryl — v5
-# Added: /icon-192.png and /icon-512.png static routes
+# tourryl_backend.py — KUMG / TouRryl — Postgres edition (v6)
+# Migrated from SQLite to Supabase Postgres for Render deployment
 # ============================================================
-import os, sys
-
-_HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else None
-_TARGET = "/storage/emulated/0/KUMG/TouRryl"
-if os.path.isdir(_TARGET): os.chdir(_TARGET)
-elif _HERE and os.path.isdir(_HERE): os.chdir(_HERE)
-print(f"[TouRryl] cwd = {os.getcwd()}")
-
-import sqlite3, hashlib, uuid, re, math, json, asyncio, secrets
+import os, sys, re, json, math, uuid, hashlib, secrets, asyncio
 from datetime import datetime, timedelta
 from collections import namedtuple
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
 from fastapi import (FastAPI, Depends, HTTPException, UploadFile, File, Header,
                      WebSocket, WebSocketDisconnect, Query, Request, Response)
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,24 +25,20 @@ except ImportError: pyotp = None
 # ================= CONFIG =================
 SECRET = os.environ.get("TOURRYL_SECRET", "kumg-tourryl-change-this-secret")
 ALGO = "HS256"
-DB_FILE = "tourryl.db"
 UPLOAD_DIR = "uploads"
 MAX_UPLOAD_MB = 100
+
+PG_URL = os.environ.get("SUPABASE_PG_URL", "").strip()
 
 STRIPE_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
-PLATFORM_FEE_PERCENT = float(os.environ.get("PLATFORM_FEE_PERCENT", "8"))
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "").strip()
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "TouRryl <onboarding@resend.dev>")
 EMAIL_ENABLED = bool(RESEND_API_KEY)
-
 REQUIRE_EMAIL_VERIFICATION = os.environ.get("REQUIRE_EMAIL_VERIFICATION", "0") == "1"
-VERIFICATION_CODE_TTL_MIN = int(os.environ.get("VERIFICATION_CODE_TTL_MIN", "15"))
-
-SOFTBAN_STRIKES = int(os.environ.get("SOFTBAN_STRIKES", "3"))
-HARD_BAN_STRIKES = int(os.environ.get("HARD_BAN_STRIKES", "6"))
+VERIFICATION_CODE_TTL_MIN = 15
 
 if STRIPE_KEY:
     import stripe
@@ -56,7 +48,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI(title="TouRryl API")
 
-# ================= CORS =================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -73,170 +64,390 @@ async def preflight_handler(full_path: str):
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
-# ================= DB =================
+# ================= POSTGRES COMPAT WRAPPER =================
+def _translate_sql(sql: str) -> str:
+    sql = sql.replace("?", "%s")
+    sql = re.sub(r"datetime\('now',\s*'([+-])(\d+)\s+(\w+)'\)",
+                 r"(NOW() \1 INTERVAL '\2 \3')", sql)
+    sql = re.sub(r"datetime\('now'\)", "NOW()", sql)
+    sql = re.sub(r"MAX\(0,\s*", "GREATEST(0, ", sql)
+    if "INSERT OR IGNORE INTO" in sql.upper():
+        sql = re.sub(r"INSERT OR IGNORE INTO", "INSERT INTO", sql, flags=re.IGNORECASE)
+        if "ON CONFLICT" not in sql.upper():
+            sql = sql.rstrip().rstrip(";") + " ON CONFLICT DO NOTHING"
+    return sql
+
+class DBCursor:
+    def __init__(self, cur, lastrowid=None):
+        self._cur = cur
+        self._lastrowid = lastrowid
+    def fetchone(self): return self._cur.fetchone()
+    def fetchall(self): return self._cur.fetchall()
+    def __iter__(self): return iter(self._cur)
+    @property
+    def rowcount(self): return self._cur.rowcount
+    @property
+    def lastrowid(self): return self._lastrowid
+
+class DBConn:
+    def __init__(self):
+        self._conn = psycopg2.connect(PG_URL)
+    def execute(self, sql, params=()):
+        cur = self._conn.cursor(cursor_factory=RealDictCursor)
+        sql2 = _translate_sql(sql)
+        is_insert = sql2.strip().upper().startswith("INSERT")
+        has_ret = "RETURNING" in sql2.upper()
+        if is_insert and not has_ret:
+            sql2 = sql2.rstrip().rstrip(";") + " RETURNING id"
+        cur.execute(sql2, params)
+        lastrowid = None
+        if is_insert and not has_ret:
+            try:
+                row = cur.fetchone()
+                if row and "id" in row: lastrowid = row["id"]
+            except: pass
+        return DBCursor(cur, lastrowid)
+    def commit(self): self._conn.commit()
+    def rollback(self): self._conn.rollback()
+    def close(self): self._conn.close()
+    def executescript(self, script):
+        cur = self._conn.cursor()
+        cur.execute(script)
+
 def connect():
-    c = sqlite3.connect(DB_FILE, check_same_thread=False, timeout=10)
-    c.row_factory = sqlite3.Row
-    c.execute("PRAGMA foreign_keys = ON")
-    return c
+    return DBConn()
 
 def _add_col(conn, table, column, decl):
-    cols = [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
-    if column not in cols:
-        try: conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    try:
+        cur = conn.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name=%s AND column_name=%s",
+            (table, column)
+        )
+        if not cur.fetchone():
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+            conn.commit()
+    except Exception as e:
+        print(f"[add_col] {table}.{column}: {e}")
+        try: conn.rollback()
         except: pass
 
+# ================= SCHEMA =================
 def init_db():
     conn = connect()
     conn.executescript("""
     CREATE TABLE IF NOT EXISTS users(
-        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
-        bio TEXT DEFAULT '', avatar_url TEXT, followers_count INTEGER DEFAULT 0,
-        following_count INTEGER DEFAULT 0, is_admin INTEGER DEFAULT 0,
-        banned INTEGER DEFAULT 0, soft_banned INTEGER DEFAULT 0, strikes INTEGER DEFAULT 0,
-        trust_score REAL DEFAULT 0, email_verified INTEGER DEFAULT 0,
-        phone_verified INTEGER DEFAULT 0, phone TEXT,
-        seller_rating REAL DEFAULT 0, seller_review_count INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS user_details(user_id INTEGER PRIMARY KEY,
-        age INTEGER, gender TEXT, country TEXT, city TEXT);
-    CREATE TABLE IF NOT EXISTS settings(user_id INTEGER PRIMARY KEY,
-        data_saver INTEGER DEFAULT 0, theme TEXT DEFAULT 'dark',
-        language TEXT DEFAULT 'en', autoplay_video INTEGER DEFAULT 1);
-    CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
+        id BIGSERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        bio TEXT DEFAULT '',
+        avatar_url TEXT,
+        followers_count INTEGER DEFAULT 0,
+        following_count INTEGER DEFAULT 0,
+        is_admin INTEGER DEFAULT 0,
+        banned INTEGER DEFAULT 0,
+        soft_banned INTEGER DEFAULT 0,
+        strikes INTEGER DEFAULT 0,
+        trust_score REAL DEFAULT 0,
+        email_verified INTEGER DEFAULT 0,
+        phone_verified INTEGER DEFAULT 0,
+        phone TEXT,
+        seller_rating REAL DEFAULT 0,
+        seller_review_count INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS user_details(
+        user_id BIGINT PRIMARY KEY,
+        age INTEGER, gender TEXT, country TEXT, city TEXT
+    );
+    CREATE TABLE IF NOT EXISTS settings(
+        user_id BIGINT PRIMARY KEY,
+        data_saver INTEGER DEFAULT 0,
+        theme TEXT DEFAULT 'dark',
+        language TEXT DEFAULT 'en',
+        autoplay_video INTEGER DEFAULT 1
+    );
+    CREATE TABLE IF NOT EXISTS sessions(
+        id TEXT PRIMARY KEY,
+        user_id BIGINT NOT NULL,
         device TEXT, ip TEXT, user_agent TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP, last_seen TEXT DEFAULT CURRENT_TIMESTAMP,
-        revoked INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS devices(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, fingerprint TEXT NOT NULL, user_agent TEXT,
-        screen TEXT, timezone TEXT, language TEXT, ip TEXT, blocked INTEGER DEFAULT 0,
-        first_seen TEXT DEFAULT CURRENT_TIMESTAMP, last_seen TEXT DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, fingerprint));
-    CREATE TABLE IF NOT EXISTS posts(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        author_id INTEGER NOT NULL, content TEXT, media_url TEXT, media_type TEXT,
-        likes_count INTEGER DEFAULT 0, comments_count INTEGER DEFAULT 0,
-        views_count INTEGER DEFAULT 0, report_count INTEGER DEFAULT 0,
-        hidden INTEGER DEFAULT 0, edited_at TEXT, repost_of INTEGER,
-        sound_name TEXT, listing_id INTEGER,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS likes(post_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (post_id, user_id));
-    CREATE TABLE IF NOT EXISTS comments(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL, user_id INTEGER NOT NULL, parent_id INTEGER,
-        body TEXT NOT NULL, likes_count INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS comment_likes(comment_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (comment_id, user_id));
-    CREATE TABLE IF NOT EXISTS search_history(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, query TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS post_views(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        post_id INTEGER NOT NULL, user_id INTEGER, watch_seconds REAL DEFAULT 0,
-        completed INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS follows(follower_id INTEGER NOT NULL,
-        following_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (follower_id, following_id));
-    CREATE TABLE IF NOT EXISTS blocks(blocker_id INTEGER NOT NULL,
-        blocked_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (blocker_id, blocked_id));
-    CREATE TABLE IF NOT EXISTS saves(user_id INTEGER NOT NULL, item_type TEXT NOT NULL,
-        item_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (user_id, item_type, item_id));
-    CREATE TABLE IF NOT EXISTS stories(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, media_url TEXT NOT NULL, media_type TEXT NOT NULL,
-        caption TEXT, views_count INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP, expires_at TEXT NOT NULL);
-    CREATE TABLE IF NOT EXISTS story_views(story_id INTEGER NOT NULL,
-        viewer_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (story_id, viewer_id));
-    CREATE TABLE IF NOT EXISTS hashtags(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tag TEXT UNIQUE NOT NULL, post_count INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS post_hashtags(post_id INTEGER NOT NULL,
-        hashtag_id INTEGER NOT NULL, PRIMARY KEY (post_id, hashtag_id));
-    CREATE TABLE IF NOT EXISTS conversations(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_a INTEGER NOT NULL, user_b INTEGER NOT NULL,
-        last_message_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_a, user_b));
-    CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        conversation_id INTEGER NOT NULL, sender_id INTEGER NOT NULL,
-        body TEXT NOT NULL, read INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS notifications(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, actor_id INTEGER NOT NULL, type TEXT NOT NULL,
-        post_id INTEGER, comment_id INTEGER, read INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS listings(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        seller_id INTEGER NOT NULL, title TEXT NOT NULL, description TEXT,
-        price REAL NOT NULL, currency TEXT DEFAULT 'USD', category TEXT DEFAULT 'other',
-        condition TEXT DEFAULT 'used', media_url TEXT, media_type TEXT,
-        location TEXT, status TEXT DEFAULT 'active',
-        views_count INTEGER DEFAULT 0, stripe_enabled INTEGER DEFAULT 0,
-        offers_enabled INTEGER DEFAULT 1, edited_at TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS listing_images(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        listing_id INTEGER NOT NULL, media_url TEXT NOT NULL, media_type TEXT DEFAULT 'image',
-        position INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS offers(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        listing_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL,
-        amount REAL NOT NULL, currency TEXT DEFAULT 'USD', message TEXT,
-        status TEXT DEFAULT 'pending', counter_amount REAL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP, responded_at TEXT);
-    CREATE TABLE IF NOT EXISTS seller_reviews(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        seller_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, listing_id INTEGER,
-        rating INTEGER NOT NULL, comment TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        listing_id INTEGER NOT NULL, buyer_id INTEGER NOT NULL, seller_id INTEGER NOT NULL,
-        amount REAL NOT NULL, currency TEXT NOT NULL, status TEXT DEFAULT 'pending',
-        stripe_session_id TEXT UNIQUE, stripe_payment_intent TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP, paid_at TEXT);
-    CREATE TABLE IF NOT EXISTS reports(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        reporter_id INTEGER NOT NULL, post_id INTEGER, comment_id INTEGER,
-        listing_id INTEGER, reported_user_id INTEGER, reason TEXT NOT NULL,
-        status TEXT DEFAULT 'open', created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS post_timing(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS rate_events(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, action TEXT NOT NULL, ip TEXT, content_hash TEXT,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS blocked_ips(ip TEXT PRIMARY KEY, reason TEXT,
-        admin_id INTEGER, auto INTEGER DEFAULT 0,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS ip_events(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ip TEXT NOT NULL, user_id INTEGER, action TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS email_queue(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER, to_email TEXT NOT NULL, subject TEXT NOT NULL,
-        html TEXT NOT NULL, kind TEXT, attempts INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        last_seen TIMESTAMPTZ DEFAULT NOW(),
+        revoked INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS devices(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        fingerprint TEXT NOT NULL,
+        user_agent TEXT, screen TEXT, timezone TEXT, language TEXT, ip TEXT,
+        blocked INTEGER DEFAULT 0,
+        first_seen TIMESTAMPTZ DEFAULT NOW(),
+        last_seen TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_id, fingerprint)
+    );
+    CREATE TABLE IF NOT EXISTS posts(
+        id BIGSERIAL PRIMARY KEY,
+        author_id BIGINT NOT NULL,
+        content TEXT, media_url TEXT, media_type TEXT,
+        likes_count INTEGER DEFAULT 0,
+        comments_count INTEGER DEFAULT 0,
+        views_count INTEGER DEFAULT 0,
+        report_count INTEGER DEFAULT 0,
+        hidden INTEGER DEFAULT 0,
+        edited_at TIMESTAMPTZ,
+        repost_of BIGINT,
+        sound_name TEXT,
+        listing_id BIGINT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS likes(
+        post_id BIGINT NOT NULL,
+        user_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (post_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS comments(
+        id BIGSERIAL PRIMARY KEY,
+        post_id BIGINT NOT NULL,
+        user_id BIGINT NOT NULL,
+        parent_id BIGINT,
+        body TEXT NOT NULL,
+        likes_count INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS comment_likes(
+        comment_id BIGINT NOT NULL,
+        user_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (comment_id, user_id)
+    );
+    CREATE TABLE IF NOT EXISTS search_history(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        query TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS post_views(
+        id BIGSERIAL PRIMARY KEY,
+        post_id BIGINT NOT NULL,
+        user_id BIGINT,
+        watch_seconds REAL DEFAULT 0,
+        completed INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS follows(
+        follower_id BIGINT NOT NULL,
+        following_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (follower_id, following_id)
+    );
+    CREATE TABLE IF NOT EXISTS blocks(
+        blocker_id BIGINT NOT NULL,
+        blocked_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (blocker_id, blocked_id)
+    );
+    CREATE TABLE IF NOT EXISTS saves(
+        user_id BIGINT NOT NULL,
+        item_type TEXT NOT NULL,
+        item_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, item_type, item_id)
+    );
+    CREATE TABLE IF NOT EXISTS stories(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        media_url TEXT NOT NULL,
+        media_type TEXT NOT NULL,
+        caption TEXT,
+        views_count INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        expires_at TIMESTAMPTZ NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS story_views(
+        story_id BIGINT NOT NULL,
+        viewer_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (story_id, viewer_id)
+    );
+    CREATE TABLE IF NOT EXISTS hashtags(
+        id BIGSERIAL PRIMARY KEY,
+        tag TEXT UNIQUE NOT NULL,
+        post_count INTEGER DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS post_hashtags(
+        post_id BIGINT NOT NULL,
+        hashtag_id BIGINT NOT NULL,
+        PRIMARY KEY (post_id, hashtag_id)
+    );
+    CREATE TABLE IF NOT EXISTS conversations(
+        id BIGSERIAL PRIMARY KEY,
+        user_a BIGINT NOT NULL,
+        user_b BIGINT NOT NULL,
+        last_message_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE(user_a, user_b)
+    );
+    CREATE TABLE IF NOT EXISTS messages(
+        id BIGSERIAL PRIMARY KEY,
+        conversation_id BIGINT NOT NULL,
+        sender_id BIGINT NOT NULL,
+        body TEXT NOT NULL,
+        read INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS notifications(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        actor_id BIGINT NOT NULL,
+        type TEXT NOT NULL,
+        post_id BIGINT, comment_id BIGINT,
+        read INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS listings(
+        id BIGSERIAL PRIMARY KEY,
+        seller_id BIGINT NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        price REAL NOT NULL,
+        currency TEXT DEFAULT 'USD',
+        category TEXT DEFAULT 'other',
+        condition TEXT DEFAULT 'used',
+        media_url TEXT, media_type TEXT,
+        location TEXT,
+        status TEXT DEFAULT 'active',
+        views_count INTEGER DEFAULT 0,
+        stripe_enabled INTEGER DEFAULT 0,
+        offers_enabled INTEGER DEFAULT 1,
+        edited_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS listing_images(
+        id BIGSERIAL PRIMARY KEY,
+        listing_id BIGINT NOT NULL,
+        media_url TEXT NOT NULL,
+        media_type TEXT DEFAULT 'image',
+        position INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS offers(
+        id BIGSERIAL PRIMARY KEY,
+        listing_id BIGINT NOT NULL,
+        buyer_id BIGINT NOT NULL,
+        amount REAL NOT NULL,
+        currency TEXT DEFAULT 'USD',
+        message TEXT,
+        status TEXT DEFAULT 'pending',
+        counter_amount REAL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        responded_at TIMESTAMPTZ
+    );
+    CREATE TABLE IF NOT EXISTS seller_reviews(
+        id BIGSERIAL PRIMARY KEY,
+        seller_id BIGINT NOT NULL,
+        buyer_id BIGINT NOT NULL,
+        listing_id BIGINT,
+        rating INTEGER NOT NULL,
+        comment TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS orders(
+        id BIGSERIAL PRIMARY KEY,
+        listing_id BIGINT NOT NULL,
+        buyer_id BIGINT NOT NULL,
+        seller_id BIGINT NOT NULL,
+        amount REAL NOT NULL,
+        currency TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        stripe_session_id TEXT UNIQUE,
+        stripe_payment_intent TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        paid_at TIMESTAMPTZ
+    );
+    CREATE TABLE IF NOT EXISTS reports(
+        id BIGSERIAL PRIMARY KEY,
+        reporter_id BIGINT NOT NULL,
+        post_id BIGINT, comment_id BIGINT,
+        listing_id BIGINT,
+        reported_user_id BIGINT,
+        reason TEXT NOT NULL,
+        status TEXT DEFAULT 'open',
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS post_timing(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS rate_events(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        action TEXT NOT NULL,
+        ip TEXT, content_hash TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS blocked_ips(
+        ip TEXT PRIMARY KEY,
+        reason TEXT, admin_id BIGINT,
+        auto INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS ip_events(
+        id BIGSERIAL PRIMARY KEY,
+        ip TEXT NOT NULL,
+        user_id BIGINT,
+        action TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS email_queue(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT,
+        to_email TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        html TEXT NOT NULL,
+        kind TEXT,
+        attempts INTEGER DEFAULT 0,
         max_attempts INTEGER DEFAULT 5,
-        next_attempt_at TEXT DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'pending',
-        last_error TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-    CREATE TABLE IF NOT EXISTS verifications(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, kind TEXT NOT NULL, target TEXT NOT NULL,
-        code TEXT NOT NULL, attempts INTEGER DEFAULT 0, max_attempts INTEGER DEFAULT 6,
-        verified INTEGER DEFAULT 0, expires_at TEXT NOT NULL,
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP, verified_at TEXT);
-    CREATE TABLE IF NOT EXISTS push_subs(id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL, endpoint TEXT UNIQUE NOT NULL, p256dh TEXT NOT NULL,
-        auth TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
+        next_attempt_at TIMESTAMPTZ DEFAULT NOW(),
+        status TEXT DEFAULT 'pending',
+        last_error TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS verifications(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        kind TEXT NOT NULL,
+        target TEXT NOT NULL,
+        code TEXT NOT NULL,
+        attempts INTEGER DEFAULT 0,
+        max_attempts INTEGER DEFAULT 6,
+        verified INTEGER DEFAULT 0,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        verified_at TIMESTAMPTZ
+    );
+    CREATE TABLE IF NOT EXISTS push_subs(
+        id BIGSERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        endpoint TEXT UNIQUE NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_posts_media ON posts(media_type, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read);
     CREATE INDEX IF NOT EXISTS idx_msgs_conv ON messages(conversation_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_listings_cat ON listings(category, status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_listings_seller ON listings(seller_id, status);
     CREATE INDEX IF NOT EXISTS idx_offers_listing ON offers(listing_id, status);
     CREATE INDEX IF NOT EXISTS idx_reviews_seller ON seller_reviews(seller_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_images_listing ON listing_images(listing_id, position);
     """)
     for c, d in [
         ("posts","views_count INTEGER DEFAULT 0"),("posts","hidden INTEGER DEFAULT 0"),
-        ("posts","report_count INTEGER DEFAULT 0"),("posts","edited_at TEXT"),
-        ("posts","repost_of INTEGER"),("posts","sound_name TEXT"),("posts","listing_id INTEGER"),
-        ("listings","edited_at TEXT"),("listings","stripe_enabled INTEGER DEFAULT 0"),
+        ("posts","report_count INTEGER DEFAULT 0"),("posts","repost_of BIGINT"),
+        ("posts","sound_name TEXT"),("posts","listing_id BIGINT"),
+        ("listings","edited_at TIMESTAMPTZ"),("listings","stripe_enabled INTEGER DEFAULT 0"),
         ("listings","condition TEXT DEFAULT 'used'"),
         ("listings","offers_enabled INTEGER DEFAULT 1"),
         ("users","is_admin INTEGER DEFAULT 0"),("users","banned INTEGER DEFAULT 0"),
@@ -245,15 +456,17 @@ def init_db():
         ("users","phone_verified INTEGER DEFAULT 0"),("users","phone TEXT"),
         ("users","seller_rating REAL DEFAULT 0"),
         ("users","seller_review_count INTEGER DEFAULT 0"),
-        ("reports","listing_id INTEGER"),
+        ("reports","listing_id BIGINT"),
     ]:
         _add_col(conn, c, d.split()[0], " ".join(d.split()[1:]))
     conn.commit()
     try:
-        conn.execute("UPDATE users SET email_verified=1 WHERE email_verified=0 AND created_at < datetime('now','-1 minute')")
-        conn.execute("DELETE FROM rate_events WHERE created_at < datetime('now','-2 days')")
+        conn.execute("UPDATE users SET email_verified=1 WHERE email_verified=0 AND created_at < NOW() - INTERVAL '1 minute'")
+        conn.execute("DELETE FROM rate_events WHERE created_at < NOW() - INTERVAL '2 days'")
         conn.commit()
-    except: pass
+    except Exception as e:
+        print(f"[init cleanup] {e}")
+        conn.rollback()
     conn.close()
 
 # ================= HASH / TOKEN =================
@@ -289,7 +502,6 @@ def optional_user(authorization: str = Header(None)):
     except jwt.PyJWTError:
         return None
 
-# ================= IP =================
 def _client_ip(request=None, headers=None):
     if headers:
         for k in ("x-forwarded-for", "X-Forwarded-For"):
@@ -325,9 +537,12 @@ ws_manager = WSManager()
 # ================= RATE =================
 RateRule = namedtuple("RateRule", ["action", "max", "window_seconds"])
 RATE_RULES = {
-    "post": RateRule("post", 30, 3600), "comment": RateRule("comment", 90, 3600),
-    "message": RateRule("message", 300, 3600), "listing": RateRule("listing", 20, 86400),
-    "follow": RateRule("follow", 200, 3600), "offer": RateRule("offer", 50, 3600),
+    "post": RateRule("post", 30, 3600),
+    "comment": RateRule("comment", 90, 3600),
+    "message": RateRule("message", 300, 3600),
+    "listing": RateRule("listing", 20, 86400),
+    "follow": RateRule("follow", 200, 3600),
+    "offer": RateRule("offer", 50, 3600),
     "review": RateRule("review", 20, 86400),
 }
 
@@ -336,25 +551,13 @@ class RateLimited(HTTPException):
         super().__init__(429, f"Too many requests. Try again in {retry_after}s.")
         self.headers = {"Retry-After": str(retry_after)}
 
-def _hash_content(*parts):
-    h = hashlib.sha256()
-    for p in parts:
-        h.update(str(p or "").encode("utf-8", errors="ignore"))
-        h.update(b"\x00")
-    return h.hexdigest()
-
 def check_rate(conn, user_id, action, ip=None, content_hash=None):
     rule = RATE_RULES.get(action)
     if not rule: return
-    row = conn.execute("""SELECT COUNT(*) c FROM rate_events WHERE user_id=? AND action=?
-                          AND created_at > datetime('now', ?)""",
-                       (user_id, action, f"-{rule.window_seconds} seconds")).fetchone()
+    row = conn.execute("""SELECT COUNT(*) c FROM rate_events WHERE user_id=%s AND action=%s
+                          AND created_at > NOW() - INTERVAL '1 second' * %s""",
+                       (user_id, action, rule.window_seconds)).fetchone()
     if row and row["c"] >= rule.max: raise RateLimited(rule.window_seconds)
-    if content_hash and action == "post":
-        dup = conn.execute("""SELECT COUNT(*) c FROM rate_events WHERE user_id=? AND action='post'
-                              AND content_hash=? AND created_at > datetime('now','-300 seconds')""",
-                           (user_id, content_hash)).fetchone()
-        if dup and dup["c"] >= 1: raise RateLimited(300)
     conn.execute("INSERT INTO rate_events (user_id, action, ip, content_hash) VALUES (?,?,?,?)",
                  (user_id, action, ip, content_hash))
 
@@ -362,7 +565,7 @@ def check_rate(conn, user_id, action, ip=None, content_hash=None):
 def _blocked_ids(conn, uid):
     rows = conn.execute("""SELECT blocked_id FROM blocks WHERE blocker_id=?
                            UNION SELECT blocker_id FROM blocks WHERE blocked_id=?""", (uid, uid)).fetchall()
-    return {r[0] for r in rows}
+    return {r["blocked_id"] for r in rows}
 
 def _is_admin(conn, uid):
     r = conn.execute("SELECT is_admin FROM users WHERE id=?", (uid,)).fetchone()
@@ -413,11 +616,11 @@ HASHTAG_RE = re.compile(r"#(\w{1,50})")
 def extract_hashtags(conn, post_id, text):
     tags = {m.group(1).lower() for m in HASHTAG_RE.finditer(text or "")}
     for tag in tags:
-        conn.execute("INSERT OR IGNORE INTO hashtags (tag) VALUES (?)", (tag,))
+        conn.execute("INSERT INTO hashtags (tag) VALUES (?) ON CONFLICT DO NOTHING", (tag,))
         row = conn.execute("SELECT id FROM hashtags WHERE tag=?", (tag,)).fetchone()
         if row:
-            cur = conn.execute("INSERT OR IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?,?)",
-                               (post_id, row["id"]))
+            cur = conn.execute("""INSERT INTO post_hashtags (post_id, hashtag_id) VALUES (?,?)
+                                  ON CONFLICT DO NOTHING""", (post_id, row["id"]))
             if cur.rowcount:
                 conn.execute("UPDATE hashtags SET post_count = post_count + 1 WHERE id=?", (row["id"],))
 
@@ -430,24 +633,11 @@ def send_email(to_email, subject, html, kind, user_id=None):
         conn.commit(); conn.close()
     except: pass
 
-def _tpl_wrap(title, body):
-    return f"""<!doctype html><html><body style="margin:0;background:#000;font-family:-apple-system,sans-serif;color:#fff">
-    <div style="max-width:520px;margin:0 auto;padding:30px 24px">
-    <div style="font-weight:800;font-size:24px;margin-bottom:22px">Tou<span style="color:#00A86B">Rryl</span></div>
-    <div style="background:#0A0F0D;border:1px solid #141a18;border-radius:14px;padding:24px">
-    <h2 style="font-size:18px;margin:0 0 12px;color:#00E58A">{title}</h2>{body}</div></div></body></html>"""
-
-def _send_verification_code(email, code, uid):
-    html = _tpl_wrap("Verify your email", f"""
-      <p style="color:#9CA3AF;font-size:14px">Enter this code in TouRryl:</p>
-      <div style="font-family:ui-monospace;font-size:34px;font-weight:800;letter-spacing:8px;color:#00E58A;text-align:center;padding:20px;background:#000;border-radius:10px">{code}</div>""")
-    send_email(email, "Your TouRryl verification code", html, "verify_email", uid)
-
 # ================= MODELS =================
 class RegisterIn(BaseModel):
     username: str; email: str; password: str; age: int | None = None
 class LoginIn(BaseModel):
-    email: str; password: str; totp: str | None = None
+    email: str; password: str
 class PostIn(BaseModel):
     content: str = ""; media_url: str | None = None; media_type: str | None = None
     sound_name: str | None = None; listing_id: int | None = None
@@ -479,21 +669,24 @@ class ReportIn(BaseModel):
     reason: str; post_id: int | None = None
     comment_id: int | None = None; listing_id: int | None = None
     reported_user_id: int | None = None
-class CheckoutIn(BaseModel): success_url: str | None = None; cancel_url: str | None = None
 class DeviceIn(BaseModel):
     fingerprint: str; screen: str = ""; timezone: str = ""; language: str = ""
-class VerifyRequestIn(BaseModel): kind: str; target: str | None = None
-class VerifyConfirmIn(BaseModel): kind: str; code: str
 class ListingImagesIn(BaseModel): images: list[dict]
 
 # ================= STARTUP =================
 @app.on_event("startup")
 async def _startup():
-    init_db()
+    if not PG_URL:
+        print("⚠️  SUPABASE_PG_URL not set")
+        return
+    try:
+        init_db()
+        print("✅ Database schema ready")
+    except Exception as e:
+        print(f"❌ init_db failed: {e}")
 
-# ================= STATIC FILES =================
+# ================= STATIC =================
 def _serve(filename, media_type=None):
-    """Serve a static file if it exists, otherwise return a clean error."""
     if not os.path.exists(filename):
         raise HTTPException(404, f"{filename} not found")
     if media_type:
@@ -502,30 +695,21 @@ def _serve(filename, media_type=None):
 
 @app.get("/tourryl.html")
 def _ui(): return _serve("tourryl.html", "text/html")
-
 @app.get("/sw.js")
 def _sw(): return _serve("sw.js", "application/javascript")
-
 @app.get("/manifest.webmanifest")
 def _mf(): return _serve("manifest.webmanifest", "application/manifest+json")
-
-# 👇 ICON ROUTES — added in v5
 @app.get("/icon-192.png")
 def _icon192(): return _serve("icon-192.png", "image/png")
-
 @app.get("/icon-512.png")
 def _icon512(): return _serve("icon-512.png", "image/png")
-# 👆 END ICON ROUTES
-
 @app.get("/favicon.ico")
 def _favicon(): return Response(status_code=204)
-
 @app.get("/")
 def _root(): return RedirectResponse("/tourryl.html")
-
 @app.get("/health")
 def _health():
-    return {"status": "ok", "service": "TouRryl", "cwd": os.getcwd()}
+    return {"status": "ok", "service": "TouRryl", "db": bool(PG_URL), "cwd": os.getcwd()}
 
 # ================= AUTH =================
 @app.post("/auth/register")
@@ -535,24 +719,20 @@ def register(d: RegisterIn, request: Request, ua: str = Header(None)):
     if d.age is not None and (d.age < 13 or d.age > 120): raise HTTPException(400, "Age 13-120")
     conn = connect()
     try:
-        cur = conn.execute("INSERT INTO users (username, email, password_hash) VALUES (?,?,?)",
-                           (d.username.strip(), d.email.strip().lower(), hash_password(d.password)))
-        uid = cur.lastrowid
+        try:
+            cur = conn.execute("INSERT INTO users (username, email, password_hash) VALUES (?,?,?)",
+                               (d.username.strip(), d.email.strip().lower(), hash_password(d.password)))
+            uid = cur.lastrowid
+        except Exception:
+            conn.rollback(); conn.close()
+            raise HTTPException(400, "Username or email taken")
         if uid == 1: conn.execute("UPDATE users SET is_admin=1 WHERE id=1")
-        conn.execute("INSERT INTO user_details (user_id, age) VALUES (?,?)", (uid, d.age))
-        conn.execute("INSERT INTO settings (user_id) VALUES (?)", (uid,))
-        code = _gen_code()
-        conn.execute("""INSERT INTO verifications (user_id, kind, target, code, expires_at)
-                        VALUES (?, 'email', ?, ?, datetime('now', ?))""",
-                     (uid, d.email.strip().lower(), code, f"+{VERIFICATION_CODE_TTL_MIN} minutes"))
+        conn.execute("INSERT INTO user_details (user_id, age) VALUES (?,?) ON CONFLICT DO NOTHING", (uid, d.age))
+        conn.execute("INSERT INTO settings (user_id) VALUES (?) ON CONFLICT DO NOTHING", (uid,))
         conn.commit()
         sid = _new_session(conn, uid, request=request, ua=(ua or "")[:300])
-        try: _send_verification_code(d.email.strip().lower(), code, uid)
-        except: pass
         return {"token": make_token(uid, d.username), "session_id": sid,
                 "user": {"id": uid, "username": d.username}}
-    except sqlite3.IntegrityError:
-        raise HTTPException(400, "Username or email taken")
     finally: conn.close()
 
 @app.post("/auth/login")
@@ -602,8 +782,7 @@ def update_details(d: DetailsIn, u=Depends(current_user)):
     conn = connect()
     if d.age is not None and (d.age < 13 or d.age > 120):
         conn.close(); raise HTTPException(400, "Age 13-120")
-    if not conn.execute("SELECT 1 FROM user_details WHERE user_id=?", (u["id"],)).fetchone():
-        conn.execute("INSERT INTO user_details (user_id) VALUES (?)", (u["id"],))
+    conn.execute("INSERT INTO user_details (user_id) VALUES (?) ON CONFLICT DO NOTHING", (u["id"],))
     if d.age is not None: conn.execute("UPDATE user_details SET age=? WHERE user_id=?", (d.age, u["id"]))
     if d.gender is not None: conn.execute("UPDATE user_details SET gender=? WHERE user_id=?", (d.gender[:20], u["id"]))
     if d.country is not None: conn.execute("UPDATE user_details SET country=? WHERE user_id=?", (d.country[:60], u["id"]))
@@ -628,7 +807,6 @@ async def upload_avatar(file: UploadFile = File(...), u=Depends(current_user)):
     conn.commit(); conn.close()
     return {"avatar_url": url}
 
-# ================= UPLOAD =================
 @app.post("/upload")
 async def upload(file: UploadFile = File(...), u=Depends(current_user)):
     ctype = file.content_type or ""
@@ -648,7 +826,7 @@ async def upload(file: UploadFile = File(...), u=Depends(current_user)):
             out.write(chunk)
     return {"url": f"/uploads/{name}", "type": mt}
 
-# ================= POSTS =================
+# ================= POSTS / FEEDS =================
 def _attach_listing(conn, d):
     if not d.get("listing_id"): return d
     try:
@@ -667,9 +845,6 @@ def _enrich_post(conn, d, u):
         except: pass
         try: d["saved"] = bool(conn.execute("SELECT 1 FROM saves WHERE user_id=? AND item_type='post' AND item_id=?",
                                              (u["id"], d["id"])).fetchone())
-        except: pass
-        try: d["reposted"] = bool(conn.execute("SELECT 1 FROM posts WHERE author_id=? AND repost_of=?",
-                                                (u["id"], d["id"])).fetchone())
         except: pass
         if "author_id" in d:
             try: d["following_author"] = bool(conn.execute("""SELECT 1 FROM follows
@@ -723,7 +898,6 @@ def delete_post(pid: int, u=Depends(current_user)):
     conn.commit(); conn.close()
     return {"ok": True}
 
-# ================= FEEDS =================
 def _feed_query(conn, where_extra="", params_extra=(), limit=20, offset=0):
     sql = f"""
         SELECT p.id, p.content, p.media_url, p.media_type, p.likes_count, p.comments_count,
@@ -748,13 +922,12 @@ def feed_foryou(limit: int = 20, offset: int = 0, u=Depends(optional_user)):
         for r in rows:
             d = dict(r)
             try:
-                created = datetime.fromisoformat(d["created_at"])
-                hours = max(0.1, (now - created).total_seconds() / 3600)
-            except Exception:
-                hours = 1.0
-            raw = ((d.get("likes_count") or 0) * 3.0
-                   + (d.get("comments_count") or 0) * 5.0
-                   + (d.get("views_count") or 0) * 0.5)
+                created = d["created_at"]
+                if isinstance(created, str):
+                    created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                hours = max(0.1, (now - created.replace(tzinfo=None)).total_seconds() / 3600)
+            except: hours = 1.0
+            raw = (d.get("likes_count") or 0)*3 + (d.get("comments_count") or 0)*5 + (d.get("views_count") or 0)*0.5
             d["score"] = raw / ((hours + 2.0) ** 1.4)
             scored.append(d)
         scored.sort(key=lambda x: x["score"], reverse=True)
@@ -782,13 +955,12 @@ def feed_videos(limit: int = 20, offset: int = 0, u=Depends(optional_user)):
         for r in rows:
             d = dict(r)
             try:
-                created = datetime.fromisoformat(d["created_at"])
-                hours = max(0.1, (now - created).total_seconds() / 3600)
-            except Exception:
-                hours = 1.0
-            raw = ((d.get("likes_count") or 0) * 3.0
-                   + (d.get("comments_count") or 0) * 5.0
-                   + (d.get("views_count") or 0) * 1.0)
+                created = d["created_at"]
+                if isinstance(created, str):
+                    created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                hours = max(0.1, (now - created.replace(tzinfo=None)).total_seconds() / 3600)
+            except: hours = 1.0
+            raw = (d.get("likes_count") or 0)*3 + (d.get("comments_count") or 0)*5 + (d.get("views_count") or 0)*1
             d["score"] = raw / ((hours + 2.0) ** 1.3)
             scored.append(d)
         scored.sort(key=lambda x: x["score"], reverse=True)
@@ -822,16 +994,16 @@ def like_post(pid: int, u=Depends(current_user)):
     conn = connect()
     post = conn.execute("SELECT author_id FROM posts WHERE id=?", (pid,)).fetchone()
     if not post: conn.close(); raise HTTPException(404, "Not found")
-    try:
-        conn.execute("INSERT INTO likes (post_id, user_id) VALUES (?,?)", (pid, u["id"]))
-        conn.execute("UPDATE posts SET likes_count=likes_count+1 WHERE id=?", (pid,))
-        push_notification(conn, post["author_id"], u["id"], "like", post_id=pid)
-        conn.commit(); return {"liked": True}
-    except sqlite3.IntegrityError:
+    existing = conn.execute("SELECT 1 FROM likes WHERE post_id=? AND user_id=?", (pid, u["id"])).fetchone()
+    if existing:
         conn.execute("DELETE FROM likes WHERE post_id=? AND user_id=?", (pid, u["id"]))
-        conn.execute("UPDATE posts SET likes_count=MAX(0,likes_count-1) WHERE id=?", (pid,))
-        conn.commit(); return {"liked": False}
-    finally: conn.close()
+        conn.execute("UPDATE posts SET likes_count=GREATEST(0,likes_count-1) WHERE id=?", (pid,))
+        conn.commit(); conn.close(); return {"liked": False}
+    conn.execute("INSERT INTO likes (post_id, user_id) VALUES (?,?)", (pid, u["id"]))
+    conn.execute("UPDATE posts SET likes_count=likes_count+1 WHERE id=?", (pid,))
+    push_notification(conn, post["author_id"], u["id"], "like", post_id=pid)
+    conn.commit(); conn.close()
+    return {"liked": True}
 
 @app.post("/posts/{pid}/view")
 def record_view(pid: int, v: ViewIn, u=Depends(optional_user)):
@@ -885,43 +1057,43 @@ def like_comment(cid: int, u=Depends(current_user)):
     conn = connect()
     c = conn.execute("SELECT user_id FROM comments WHERE id=?", (cid,)).fetchone()
     if not c: conn.close(); raise HTTPException(404, "Not found")
-    try:
-        conn.execute("INSERT INTO comment_likes (comment_id, user_id) VALUES (?,?)", (cid, u["id"]))
-        conn.execute("UPDATE comments SET likes_count=likes_count+1 WHERE id=?", (cid,))
-        push_notification(conn, c["user_id"], u["id"], "comment_like")
-        conn.commit(); return {"liked": True}
-    except sqlite3.IntegrityError:
+    ex = conn.execute("SELECT 1 FROM comment_likes WHERE comment_id=? AND user_id=?", (cid, u["id"])).fetchone()
+    if ex:
         conn.execute("DELETE FROM comment_likes WHERE comment_id=? AND user_id=?", (cid, u["id"]))
-        conn.execute("UPDATE comments SET likes_count=MAX(0,likes_count-1) WHERE id=?", (cid,))
-        conn.commit(); return {"liked": False}
-    finally: conn.close()
+        conn.execute("UPDATE comments SET likes_count=GREATEST(0,likes_count-1) WHERE id=?", (cid,))
+        conn.commit(); conn.close(); return {"liked": False}
+    conn.execute("INSERT INTO comment_likes (comment_id, user_id) VALUES (?,?)", (cid, u["id"]))
+    conn.execute("UPDATE comments SET likes_count=likes_count+1 WHERE id=?", (cid,))
+    push_notification(conn, c["user_id"], u["id"], "comment_like")
+    conn.commit(); conn.close()
+    return {"liked": True}
 
-# ================= FOLLOWS =================
+# ================= FOLLOWS / USERS =================
 @app.post("/users/{uid}/follow")
 def follow_user(uid: int, u=Depends(current_user)):
     if uid == u["id"]: raise HTTPException(400, "Can't follow yourself")
     conn = connect()
     if not conn.execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone():
         conn.close(); raise HTTPException(404, "User not found")
-    try:
-        conn.execute("INSERT INTO follows (follower_id, following_id) VALUES (?,?)", (u["id"], uid))
-        conn.execute("UPDATE users SET followers_count=followers_count+1 WHERE id=?", (uid,))
-        conn.execute("UPDATE users SET following_count=following_count+1 WHERE id=?", (u["id"],))
-        push_notification(conn, uid, u["id"], "follow")
-        conn.commit(); return {"following": True}
-    except sqlite3.IntegrityError:
+    ex = conn.execute("SELECT 1 FROM follows WHERE follower_id=? AND following_id=?", (u["id"], uid)).fetchone()
+    if ex:
         conn.execute("DELETE FROM follows WHERE follower_id=? AND following_id=?", (u["id"], uid))
-        conn.execute("UPDATE users SET followers_count=MAX(0,followers_count-1) WHERE id=?", (uid,))
-        conn.execute("UPDATE users SET following_count=MAX(0,following_count-1) WHERE id=?", (u["id"],))
-        conn.commit(); return {"following": False}
-    finally: conn.close()
+        conn.execute("UPDATE users SET followers_count=GREATEST(0,followers_count-1) WHERE id=?", (uid,))
+        conn.execute("UPDATE users SET following_count=GREATEST(0,following_count-1) WHERE id=?", (u["id"],))
+        conn.commit(); conn.close(); return {"following": False}
+    conn.execute("INSERT INTO follows (follower_id, following_id) VALUES (?,?)", (u["id"], uid))
+    conn.execute("UPDATE users SET followers_count=followers_count+1 WHERE id=?", (uid,))
+    conn.execute("UPDATE users SET following_count=following_count+1 WHERE id=?", (u["id"],))
+    push_notification(conn, uid, u["id"], "follow")
+    conn.commit(); conn.close()
+    return {"following": True}
 
 @app.get("/users/{uid}")
 def get_user(uid: int, u=Depends(optional_user)):
     conn = connect()
     r = conn.execute("""SELECT id, username, bio, avatar_url, followers_count,
-                        following_count, seller_rating, seller_review_count,
-                        created_at FROM users WHERE id=?""", (uid,)).fetchone()
+                        following_count, seller_rating, seller_review_count, created_at
+                        FROM users WHERE id=?""", (uid,)).fetchone()
     if not r: conn.close(); raise HTTPException(404, "Not found")
     d = dict(r)
     d["is_me"] = bool(u and u["id"] == uid)
@@ -1030,7 +1202,8 @@ def add_listing_images(lid: int, d: ListingImagesIn, u=Depends(current_user)):
         conn.execute("""INSERT INTO listing_images (listing_id, media_url, media_type, position)
                         VALUES (?,?,?,?)""", (lid, url, img.get("media_type","image"), pos))
         pos += 1
-    if not conn.execute("SELECT media_url FROM listings WHERE id=?", (lid,)).fetchone()["media_url"]:
+    cur_l = conn.execute("SELECT media_url FROM listings WHERE id=?", (lid,)).fetchone()
+    if cur_l and not cur_l["media_url"]:
         first = conn.execute("""SELECT media_url, media_type FROM listing_images
                                 WHERE listing_id=? ORDER BY position LIMIT 1""", (lid,)).fetchone()
         if first:
@@ -1038,26 +1211,6 @@ def add_listing_images(lid: int, d: ListingImagesIn, u=Depends(current_user)):
                          (first["media_url"], first["media_type"], lid))
     conn.commit(); conn.close()
     return {"ok": True, "count": pos}
-
-@app.patch("/listings/{lid}")
-def edit_listing(lid: int, d: ListingEditIn, u=Depends(current_user)):
-    conn = connect()
-    r = conn.execute("SELECT * FROM listings WHERE id=?", (lid,)).fetchone()
-    if not r: conn.close(); raise HTTPException(404, "Not found")
-    if r["seller_id"] != u["id"] and not _is_admin(conn, u["id"]):
-        conn.close(); raise HTTPException(403, "Not yours")
-    conn.execute("""UPDATE listings SET title=?, description=?, price=?, category=?, location=?,
-                    condition=?, media_url=?, media_type=?, offers_enabled=?, edited_at=CURRENT_TIMESTAMP
-                    WHERE id=?""",
-                 (d.title or r["title"], d.description or r["description"],
-                  d.price if d.price is not None else r["price"],
-                  d.category or r["category"], d.location or r["location"],
-                  d.condition or r["condition"],
-                  d.media_url or r["media_url"], d.media_type or r["media_type"],
-                  1 if (d.offers_enabled if d.offers_enabled is not None else r["offers_enabled"]) else 0,
-                  lid))
-    conn.commit(); conn.close()
-    return {"ok": True}
 
 @app.get("/listings")
 def list_listings(category: str = None, q: str = None,
@@ -1070,16 +1223,16 @@ def list_listings(category: str = None, q: str = None,
              FROM listings l JOIN users us ON us.id=l.seller_id
              WHERE l.status='active' AND us.banned=0 AND us.soft_banned=0"""
     params = []
-    if category and category != "all": sql += " AND l.category=?"; params.append(category)
-    if condition: sql += " AND l.condition=?"; params.append(condition)
+    if category and category != "all": sql += " AND l.category=%s"; params.append(category)
+    if condition: sql += " AND l.condition=%s"; params.append(condition)
     if q:
-        sql += " AND (l.title LIKE ? OR l.description LIKE ?)"
+        sql += " AND (l.title ILIKE %s OR l.description ILIKE %s)"
         like = f"%{q}%"; params += [like, like]
-    if min_price is not None: sql += " AND l.price >= ?"; params.append(min_price)
-    if max_price is not None: sql += " AND l.price <= ?"; params.append(max_price)
-    if location: sql += " AND l.location LIKE ?"; params.append(f"%{location}%")
-    if seller_id: sql += " AND l.seller_id = ?"; params.append(seller_id)
-    sql += " ORDER BY l.created_at DESC LIMIT ? OFFSET ?"
+    if min_price is not None: sql += " AND l.price >= %s"; params.append(min_price)
+    if max_price is not None: sql += " AND l.price <= %s"; params.append(max_price)
+    if location: sql += " AND l.location ILIKE %s"; params.append(f"%{location}%")
+    if seller_id: sql += " AND l.seller_id = %s"; params.append(seller_id)
+    sql += " ORDER BY l.created_at DESC LIMIT %s OFFSET %s"
     params += [min(limit, 100), offset]
     rows = conn.execute(sql, params).fetchall()
     out = [_enrich_listing(conn, dict(r), u) for r in rows]
@@ -1144,7 +1297,7 @@ def make_offer(lid: int, d: OfferIn, u=Depends(current_user)):
     existing = conn.execute("""SELECT id FROM offers WHERE listing_id=? AND buyer_id=? AND status='pending'""",
                             (lid, u["id"])).fetchone()
     if existing:
-        conn.execute("""UPDATE offers SET amount=?, message=?, created_at=CURRENT_TIMESTAMP WHERE id=?""",
+        conn.execute("""UPDATE offers SET amount=?, message=?, created_at=NOW() WHERE id=?""",
                      (d.amount, d.message.strip()[:300], existing["id"]))
     else:
         conn.execute("""INSERT INTO offers (listing_id, buyer_id, amount, currency, message)
@@ -1186,21 +1339,21 @@ def respond_offer(oid: int, d: OfferRespondIn, u=Depends(current_user)):
                         JOIN listings l ON l.id=o.listing_id WHERE o.id=?""", (oid,)).fetchone()
     if not o: conn.close(); raise HTTPException(404, "Not found")
     if o["seller_id"] != u["id"]: conn.close(); raise HTTPException(403, "Not yours")
-    if o["status"] != "pending" and o["status"] != "countered":
+    if o["status"] not in ("pending","countered"):
         conn.close(); raise HTTPException(400, "Already responded")
     if d.action == "accept":
-        conn.execute("UPDATE offers SET status='accepted', responded_at=CURRENT_TIMESTAMP WHERE id=?", (oid,))
-        conn.execute("""UPDATE offers SET status='declined', responded_at=CURRENT_TIMESTAMP
+        conn.execute("UPDATE offers SET status='accepted', responded_at=NOW() WHERE id=?", (oid,))
+        conn.execute("""UPDATE offers SET status='declined', responded_at=NOW()
                         WHERE listing_id=? AND id != ? AND status='pending'""", (o["listing_id"], oid))
         push_notification(conn, o["buyer_id"], u["id"], "offer_accepted", post_id=o["listing_id"])
     elif d.action == "decline":
-        conn.execute("UPDATE offers SET status='declined', responded_at=CURRENT_TIMESTAMP WHERE id=?", (oid,))
+        conn.execute("UPDATE offers SET status='declined', responded_at=NOW() WHERE id=?", (oid,))
         push_notification(conn, o["buyer_id"], u["id"], "offer_declined", post_id=o["listing_id"])
     else:
         if not d.counter_amount or d.counter_amount <= 0:
             conn.close(); raise HTTPException(400, "Counter needs amount")
         conn.execute("""UPDATE offers SET status='countered', counter_amount=?,
-                        message=?, responded_at=CURRENT_TIMESTAMP WHERE id=?""",
+                        message=?, responded_at=NOW() WHERE id=?""",
                      (d.counter_amount, d.message.strip()[:300], oid))
         push_notification(conn, o["buyer_id"], u["id"], "offer_countered", post_id=o["listing_id"])
     conn.commit(); conn.close()
@@ -1218,7 +1371,7 @@ def create_review(uid: int, d: ReviewIn, u=Depends(current_user)):
                                AND COALESCE(listing_id, 0) = COALESCE(?, 0)""",
                             (uid, u["id"], d.listing_id)).fetchone()
     if existing:
-        conn.execute("UPDATE seller_reviews SET rating=?, comment=?, created_at=CURRENT_TIMESTAMP WHERE id=?",
+        conn.execute("UPDATE seller_reviews SET rating=?, comment=?, created_at=NOW() WHERE id=?",
                      (d.rating, d.comment.strip()[:500], existing["id"]))
     else:
         conn.execute("""INSERT INTO seller_reviews (seller_id, buyer_id, listing_id, rating, comment)
@@ -1249,7 +1402,7 @@ def create_story(s: StoryIn, u=Depends(current_user)):
     if s.media_type not in ("image","video"): raise HTTPException(400, "Bad media type")
     conn = connect()
     conn.execute("""INSERT INTO stories (user_id, media_url, media_type, caption, expires_at)
-                    VALUES (?,?,?,?, datetime('now','+24 hours'))""",
+                    VALUES (?,?,?,?, NOW() + INTERVAL '24 hours')""",
                  (u["id"], s.media_url, s.media_type, s.caption.strip()[:200]))
     conn.commit(); conn.close()
     return {"ok": True}
@@ -1260,7 +1413,7 @@ def list_stories(u=Depends(optional_user)):
     blocked = _blocked_ids(conn, u["id"]) if u else set()
     rows = conn.execute("""SELECT s.*, us.username, us.avatar_url
                            FROM stories s JOIN users us ON us.id=s.user_id
-                           WHERE s.expires_at > CURRENT_TIMESTAMP
+                           WHERE s.expires_at > NOW()
                            ORDER BY s.created_at DESC""").fetchall()
     conn.close()
     grouped = {}
@@ -1276,9 +1429,11 @@ def list_stories(u=Depends(optional_user)):
 def view_story(sid: int, u=Depends(current_user)):
     conn = connect()
     try:
-        conn.execute("INSERT INTO story_views (story_id, viewer_id) VALUES (?,?)", (sid, u["id"]))
-        conn.execute("UPDATE stories SET views_count=views_count+1 WHERE id=?", (sid,))
-        conn.commit()
+        ex = conn.execute("SELECT 1 FROM story_views WHERE story_id=? AND viewer_id=?", (sid, u["id"])).fetchone()
+        if not ex:
+            conn.execute("INSERT INTO story_views (story_id, viewer_id) VALUES (?,?)", (sid, u["id"]))
+            conn.execute("UPDATE stories SET views_count=views_count+1 WHERE id=?", (sid,))
+            conn.commit()
     except: pass
     finally: conn.close()
     return {"ok": True}
@@ -1290,7 +1445,7 @@ def trending_tags(limit: int = 20):
     rows = conn.execute("""
         SELECT h.tag, h.post_count,
                (SELECT COUNT(*) FROM post_hashtags ph JOIN posts p ON p.id=ph.post_id
-                WHERE ph.hashtag_id=h.id AND p.created_at > datetime('now','-24 hours')) AS recent
+                WHERE ph.hashtag_id=h.id AND p.created_at > NOW() - INTERVAL '24 hours') AS recent
         FROM hashtags h WHERE h.post_count > 0
         ORDER BY recent DESC, post_count DESC LIMIT ?
     """, (limit,)).fetchall()
@@ -1320,22 +1475,22 @@ def search(q: str = Query(..., min_length=1), u=Depends(optional_user)):
     conn = connect()
     blocked = _blocked_ids(conn, u["id"]) if u else set()
     users = [dict(r) for r in conn.execute(
-        "SELECT id, username, avatar_url FROM users WHERE banned=0 AND username LIKE ? LIMIT 10",
+        "SELECT id, username, avatar_url FROM users WHERE banned=0 AND username ILIKE ? LIMIT 10",
         (like,)).fetchall() if r["id"] not in blocked]
     posts = [dict(r) for r in conn.execute("""
         SELECT p.*, u.username, u.avatar_url FROM posts p
         JOIN users u ON u.id=p.author_id
-        WHERE p.hidden=0 AND u.banned=0 AND p.content LIKE ?
+        WHERE p.hidden=0 AND u.banned=0 AND p.content ILIKE ?
         ORDER BY p.created_at DESC LIMIT 20
     """, (like,)).fetchall() if r["author_id"] not in blocked]
     posts = [_enrich_post(conn, p, u) for p in posts]
     hashtags = [dict(r) for r in conn.execute(
-        "SELECT tag, post_count FROM hashtags WHERE tag LIKE ? ORDER BY post_count DESC LIMIT 10",
+        "SELECT tag, post_count FROM hashtags WHERE tag ILIKE ? ORDER BY post_count DESC LIMIT 10",
         (f"%{tag}%",)).fetchall()]
     listings = [dict(r) for r in conn.execute("""
         SELECT l.*, u.username, u.avatar_url FROM listings l
         JOIN users u ON u.id=l.seller_id
-        WHERE l.status='active' AND (l.title LIKE ? OR l.description LIKE ?)
+        WHERE l.status='active' AND (l.title ILIKE ? OR l.description ILIKE ?)
         LIMIT 10
     """, (like, like)).fetchall()]
     if u:
@@ -1404,7 +1559,7 @@ def send_message(cid: int, m: MessageIn, u=Depends(current_user)):
     if not conv: conn.close(); raise HTTPException(404, "Not found")
     cur = conn.execute("INSERT INTO messages (conversation_id, sender_id, body) VALUES (?,?,?)",
                        (cid, u["id"], text))
-    conn.execute("UPDATE conversations SET last_message_at=CURRENT_TIMESTAMP WHERE id=?", (cid,))
+    conn.execute("UPDATE conversations SET last_message_at=NOW() WHERE id=?", (cid,))
     other = conv["user_b"] if u["id"] == conv["user_a"] else conv["user_a"]
     push_notification(conn, other, u["id"], "message")
     conn.commit()
@@ -1507,7 +1662,7 @@ def get_settings(u=Depends(current_user)):
     conn = connect()
     r = conn.execute("SELECT * FROM settings WHERE user_id=?", (u["id"],)).fetchone()
     if not r:
-        conn.execute("INSERT INTO settings (user_id) VALUES (?)", (u["id"],))
+        conn.execute("INSERT INTO settings (user_id) VALUES (?) ON CONFLICT DO NOTHING", (u["id"],))
         conn.commit()
         r = conn.execute("SELECT * FROM settings WHERE user_id=?", (u["id"],)).fetchone()
     conn.close()
@@ -1516,8 +1671,7 @@ def get_settings(u=Depends(current_user)):
 @app.patch("/settings")
 def update_settings(d: dict, u=Depends(current_user)):
     conn = connect()
-    if not conn.execute("SELECT 1 FROM settings WHERE user_id=?", (u["id"],)).fetchone():
-        conn.execute("INSERT INTO settings (user_id) VALUES (?)", (u["id"],))
+    conn.execute("INSERT INTO settings (user_id) VALUES (?) ON CONFLICT DO NOTHING", (u["id"],))
     if "data_saver" in d: conn.execute("UPDATE settings SET data_saver=? WHERE user_id=?", (1 if d["data_saver"] else 0, u["id"]))
     if "autoplay_video" in d: conn.execute("UPDATE settings SET autoplay_video=? WHERE user_id=?", (1 if d["autoplay_video"] else 0, u["id"]))
     conn.commit(); conn.close()
@@ -1525,9 +1679,9 @@ def update_settings(d: dict, u=Depends(current_user)):
 
 @app.get("/privacy")
 def privacy():
-    return HTMLResponse(f"""<!doctype html><html><head><meta charset="utf-8">
+    return HTMLResponse("""<!doctype html><html><head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy</title>
-    <style>body{{background:#000;color:#fff;font-family:-apple-system,sans-serif;max-width:720px;margin:0 auto;padding:24px;line-height:1.6}}h1{{color:#00E58A}}</style></head><body>
+    <style>body{background:#000;color:#fff;font-family:-apple-system,sans-serif;max-width:720px;margin:0 auto;padding:24px;line-height:1.6}h1{color:#00E58A}</style></head><body>
     <h1>TouRryl Privacy Policy</h1>
     <p>We collect: email, username, hashed password, optional profile picture, age, IP, device fingerprint, and content you post.</p>
     <p>We do not sell your personal info.</p>
@@ -1543,49 +1697,7 @@ def delete_account(confirm: str = "", u=Depends(current_user)):
     conn.commit(); conn.close()
     return {"deleted": True}
 
-# ================= VERIFY / DEVICES =================
-@app.post("/verify/request")
-def request_verify(d: VerifyRequestIn, u=Depends(current_user)):
-    if d.kind not in ("email","phone"): raise HTTPException(400, "Bad kind")
-    conn = connect()
-    if d.kind == "email":
-        row = conn.execute("SELECT email FROM users WHERE id=?", (u["id"],)).fetchone()
-        target = row["email"]
-    else:
-        target = (d.target or "").strip()
-        if not target or not target.startswith("+"):
-            conn.close(); raise HTTPException(400, "Phone must start with +")
-    code = _gen_code()
-    conn.execute("""INSERT INTO verifications (user_id, kind, target, code, expires_at)
-                    VALUES (?,?,?,?, datetime('now', ?))""",
-                 (u["id"], d.kind, target, code, f"+{VERIFICATION_CODE_TTL_MIN} minutes"))
-    conn.commit(); conn.close()
-    if d.kind == "email": _send_verification_code(target, code, u["id"])
-    return {"ok": True, "sent_to": target}
-
-@app.post("/verify/confirm")
-def confirm_verify(d: VerifyConfirmIn, u=Depends(current_user)):
-    conn = connect()
-    row = conn.execute("""SELECT * FROM verifications WHERE user_id=? AND kind=? AND verified=0
-                          ORDER BY created_at DESC LIMIT 1""", (u["id"], d.kind)).fetchone()
-    if not row: conn.close(); raise HTTPException(404, "No pending verification")
-    if row["code"] != d.code.strip(): conn.close(); raise HTTPException(400, "Wrong code")
-    conn.execute("UPDATE verifications SET verified=1, verified_at=CURRENT_TIMESTAMP WHERE id=?", (row["id"],))
-    if d.kind == "email": conn.execute("UPDATE users SET email_verified=1 WHERE id=?", (u["id"],))
-    else: conn.execute("UPDATE users SET phone_verified=1 WHERE id=?", (u["id"],))
-    conn.commit(); conn.close()
-    return {"ok": True, "verified": True}
-
-@app.get("/verify/status")
-def verify_status(u=Depends(current_user)):
-    conn = connect()
-    row = conn.execute("SELECT email_verified, phone_verified, phone FROM users WHERE id=?", (u["id"],)).fetchone()
-    conn.close()
-    return {"email_verified": bool(row["email_verified"]),
-            "phone_verified": bool(row["phone_verified"]), "phone": row["phone"],
-            "required_email": REQUIRE_EMAIL_VERIFICATION,
-            "required_phone": False}
-
+# ================= DEVICES / ADMIN =================
 @app.post("/devices/register")
 def register_device(d: DeviceIn, request: Request, u=Depends(current_user)):
     fp = d.fingerprint.strip()[:200]
@@ -1595,67 +1707,24 @@ def register_device(d: DeviceIn, request: Request, u=Depends(current_user)):
     try:
         conn.execute("""INSERT INTO devices (user_id, fingerprint, screen, timezone, language, ip)
                         VALUES (?,?,?,?,?,?)
-                        ON CONFLICT(user_id, fingerprint) DO UPDATE SET
-                        last_seen=CURRENT_TIMESTAMP, ip=excluded.ip""",
+                        ON CONFLICT (user_id, fingerprint) DO UPDATE SET
+                        last_seen=NOW(), ip=EXCLUDED.ip""",
                      (u["id"], fp, d.screen[:40], d.timezone[:60], d.language[:20], ip))
         conn.commit()
     except: pass
     conn.close()
     return {"ok": True}
 
-# ================= STRIPE =================
-@app.post("/listings/{lid}/checkout")
-def start_checkout(lid: int, d: CheckoutIn, u=Depends(current_user)):
-    if not STRIPE_KEY: raise HTTPException(400, "Stripe not configured")
-    conn = connect()
-    l = conn.execute("SELECT * FROM listings WHERE id=?", (lid,)).fetchone()
-    if not l: conn.close(); raise HTTPException(404, "Listing not found")
-    if l["status"] != "active": conn.close(); raise HTTPException(400, "Not available")
-    if l["seller_id"] == u["id"]: conn.close(); raise HTTPException(400, "Can't buy own listing")
-    amt = int(round(l["price"]*100))
-    if amt < 50: conn.close(); raise HTTPException(400, "Price too low")
-    s = stripe.checkout.Session.create(
-        mode="payment", payment_method_types=["card"],
-        line_items=[{"price_data": {"currency": (l["currency"] or "USD").lower(),
-                                    "unit_amount": amt,
-                                    "product_data": {"name": l["title"][:120]}},
-                     "quantity": 1}],
-        metadata={"kind": "listing", "listing_id": str(lid), "buyer_id": str(u["id"]),
-                  "seller_id": str(l["seller_id"])},
-        success_url=d.success_url or f"{PUBLIC_URL}/tourryl.html?paid=1",
-        cancel_url=d.cancel_url or f"{PUBLIC_URL}/tourryl.html?cancelled=1")
-    conn.execute("""INSERT INTO orders (listing_id, buyer_id, seller_id, amount, currency,
-                    status, stripe_session_id) VALUES (?,?,?,?,?, 'pending', ?)""",
-                 (lid, u["id"], l["seller_id"], l["price"], l["currency"] or "USD", s.id))
-    conn.commit(); conn.close()
-    return {"checkout_url": s.url}
-
-@app.get("/orders/mine")
-def my_orders(u=Depends(current_user)):
-    conn = connect()
-    rows = conn.execute("""SELECT o.*, l.title as listing_title, l.media_url as listing_media,
-                                  l.media_type as listing_media_type,
-                                  s.username as seller_username, b.username as buyer_username
-                           FROM orders o JOIN listings l ON l.id=o.listing_id
-                           JOIN users s ON s.id=o.seller_id
-                           JOIN users b ON b.id=o.buyer_id
-                           WHERE o.buyer_id=? OR o.seller_id=?
-                           ORDER BY o.created_at DESC LIMIT 100""",
-                        (u["id"], u["id"])).fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-# ================= ADMIN =================
 @app.get("/admin/stats")
 def admin_stats(u=Depends(require_admin)):
     conn = connect()
-    def one(q): return conn.execute(q).fetchone()[0]
-    s = {"users": one("SELECT COUNT(*) FROM users"),
-         "posts": one("SELECT COUNT(*) FROM posts WHERE hidden=0"),
-         "listings": one("SELECT COUNT(*) FROM listings WHERE status='active'"),
-         "pending_offers": one("SELECT COUNT(*) FROM offers WHERE status='pending'"),
-         "open_reports": one("SELECT COUNT(*) FROM reports WHERE status='open'"),
-         "banned": one("SELECT COUNT(*) FROM users WHERE banned=1")}
+    def one(q): return conn.execute(q).fetchone()["c"]
+    s = {"users": one("SELECT COUNT(*) c FROM users"),
+         "posts": one("SELECT COUNT(*) c FROM posts WHERE hidden=0"),
+         "listings": one("SELECT COUNT(*) c FROM listings WHERE status='active'"),
+         "pending_offers": one("SELECT COUNT(*) c FROM offers WHERE status='pending'"),
+         "open_reports": one("SELECT COUNT(*) c FROM reports WHERE status='open'"),
+         "banned": one("SELECT COUNT(*) c FROM users WHERE banned=1")}
     conn.close()
     return s
 
@@ -1665,7 +1734,7 @@ def admin_users(q: str = None, u=Depends(require_admin)):
     sql = "SELECT id, username, email, banned, soft_banned, strikes, is_admin, created_at FROM users"
     params = []
     if q:
-        sql += " WHERE username LIKE ? OR email LIKE ?"
+        sql += " WHERE username ILIKE ? OR email ILIKE ?"
         params += [f"%{q}%", f"%{q}%"]
     sql += " ORDER BY created_at DESC LIMIT 100"
     rows = conn.execute(sql, params).fetchall()
@@ -1676,7 +1745,7 @@ def admin_users(q: str = None, u=Depends(require_admin)):
 if __name__ == "__main__":
     print("=" * 60)
     print("  TouRryl API  →  http://0.0.0.0:8000")
-    print("  Local test:  http://127.0.0.1:8000/tourryl.html")
-    print("  Health:      http://127.0.0.1:8000/health")
+    print(f"  Database:    {'Supabase' if PG_URL else 'NOT CONFIGURED'}")
     print("=" * 60)
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
